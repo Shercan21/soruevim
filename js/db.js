@@ -1,7 +1,7 @@
 // IndexedDB katmanı — tüm veriler cihazda kalır.
 const DB_NAME = 'soruevim';
-const DB_VER = 1;
-const STORES = ['kv', 'questions', 'documents', 'exams', 'results'];
+const DB_VER = 2;
+const STORES = ['kv', 'questions', 'documents', 'exams', 'results', 'files'];
 let dbp;
 
 function open() {
@@ -43,13 +43,13 @@ export const db = {
   kvSet: (key, val) => tx('kv', 'readwrite', s => wrap(s.put(val, key))),
   async exportAll() {
     const out = { app: 'soruevim', version: 1, exportedAt: new Date().toISOString() };
-    for (const s of STORES.filter(x => x !== 'kv')) out[s] = await db.all(s);
+    for (const s of STORES.filter(x => x !== 'kv' && x !== 'files')) out[s] = await db.all(s);
     out.brand = await db.kvGet('brand');
     return out;
   },
   async importAll(data, { replace = false } = {}) {
     if (!data || data.app !== 'soruevim') throw new Error('Bu dosya bir Soru Evim yedeği değil.');
-    for (const s of STORES.filter(x => x !== 'kv')) {
+    for (const s of STORES.filter(x => x !== 'kv' && x !== 'files')) {
       if (replace) await db.clear(s);
       for (const item of data[s] || []) await db.put(s, item);
     }
@@ -62,8 +62,11 @@ export const db = {
 };
 
 export const DEFAULT_BRAND = {
-  kurum: '', ogretmen: '', iletisim: '', logo: '',
-  renk: '#1B4B7F', font: 'sans', baslik: 'band', numara: 'madalyon',
-  cerceve: false, filigran: false
+  kurum: '', ogretmen: '', iletisim: '', logo: '', renk: '#1B4B7F', renk2: '#2E6DB4',
+  soz: 'Başarılar dileriz.', simge: '', filigran: false, metinFiligran: '', damgalar: [], kapakGorsel: '', look: null,
 };
-export async function getBrand() { return { ...DEFAULT_BRAND, ...(await db.kvGet('brand') || {}) }; }
+export async function getBrand() {
+  const b = { ...DEFAULT_BRAND, ...(await db.kvGet('brand') || {}) };
+  if (!b.look) b.look = { baslik: 'serit', sablon: 'klasik', sayfaNo: 'daire', soruNo: 'dolu', govdeFont: 'yayinevi', baslikFont: 'grotesk', altBilgi: 'klasik', boyut: 'lise' };
+  return b;
+}

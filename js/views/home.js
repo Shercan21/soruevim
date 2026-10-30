@@ -8,23 +8,25 @@ export async function homeView(app) {
   const [brand, docs, qs] = await Promise.all([getBrand(), db.all('documents'), db.all('questions')]);
   const brandReady = !!(brand.kurum || brand.logo || brand.ogretmen);
 
-  const kindCard = (kind, tag) => h('a.card.kind-card', { href: '#/yeni/' + kind },
+  const sonId = await db.kvGet('sonBelge'); const son = sonId ? docs.find(d => d.id === sonId) : docs.sort((a, b) => b.updated - a.updated)[0];
+  const kindCard = (kind, tag) => h('a.card.kind-card', { href: '#/yeni/' + kind, 'data-tour': kind },
     ico(kind), h('div', h('h3', KINDS[kind].ad, tag ? h('span.tag', tag) : null), h('p', KINDS[kind].aciklama)), h('span.arrow', '→'));
 
   app.append(...[
     h('section.hero',
       h('h1', 'Ne oluşturmak ', h('span.hl', 'istiyorsunuz?')),
       h('p.muted', 'Seçtiğiniz türe göre sayfa düzeni, bölümler ve puanlama hazır gelir.')),
+    son ? h('a.card.kind-card', { href: '#/belge/' + son.id, style: { marginTop: '14px', background: 'linear-gradient(90deg,var(--card),color-mix(in srgb,var(--orange) 10%,var(--card)))' } }, h('div.ico', { html: ICONS[son.kind] }), h('div', h('h3', 'Kaldığınız yerden devam edin'), h('p', (son.title || KINDS[son.kind].ad) + ' · ' + countOf(son))), h('span.arrow', '→')) : null,
     h('div.grid', { style: { marginTop: '18px' } },
-      h('a.card.kind-card', { href: '#/marka', style: brandReady ? null : { borderColor: 'var(--orange)' } },
+      h('a.card.kind-card', { href: '#/marka', 'data-tour': 'marka', style: brandReady ? null : { borderColor: 'var(--orange)' } },
         ico('marka'),
         h('div', h('h3', 'Marka Kimliğini Oluştur', brandReady ? h('span.tag', '✓ HAZIR') : null), h('p', 'Logonuz, renginiz ve iletişiminiz ürettiğiniz her belgede görünsün. Bir kez kurmanız yeterli.')),
         h('span.arrow', '→'))),
     h('div.grid.grid-2', { style: { marginTop: '14px' } },
       kindCard('foy'), kindCard('test'), kindCard('yazili'), kindCard('deneme'), kindCard('banka', 'ÇOK SAYFA')),
     h('div.grid', { style: { marginTop: '14px' } },
-      h('a.card.kind-card', { href: '#/havuz' }, ico('havuz'), h('div', h('h3', 'Soru Havuzum', h('span.tag', qs.length + ' SORU')), h('p', 'Kırptığınız soruların havuzu — belge değil, depo')), h('span.arrow', '→')),
-      h('a.card.kind-card', { href: '#/sinavlar' }, ico('sinav'), h('div', h('h3', 'Sınavlarım'), h('p', 'Ekrandan sınav, cevap girişiyle yüz yüze sınav, sonuçlar ve karneler')), h('span.arrow', '→'))),
+      h('a.card.kind-card', { href: '#/havuz', 'data-tour': 'havuz' }, ico('havuz'), h('div', h('h3', 'Soru Havuzum', h('span.tag', qs.length + ' SORU')), h('p', 'Kırptığınız soruların havuzu — belge değil, depo')), h('span.arrow', '→')),
+      h('a.card.kind-card', { href: '#/sinavlar', 'data-tour': 'sinav' }, ico('sinav'), h('div', h('h3', 'Sınavlarım'), h('p', 'Ekrandan sınav, cevap girişiyle yüz yüze sınav, sonuçlar ve karneler')), h('span.arrow', '→'))),
     docs.length ? h('div', h('div.eyebrow', 'Son belgeler'),
       h('div.grid.grid-2', docs.sort((a, b) => b.updated - a.updated).slice(0, 4).map(docCard))) : null,
     h('div.eyebrow', 'Hangi belgeyi seçerseniz seçin'),
@@ -61,8 +63,11 @@ export async function docsView(app) {
 
   const importInp = h('input', { type: 'file', accept: '.json,.soruevim,application/json', hidden: true, on: { change: async e => {
     const f = e.target.files[0]; if (!f) return;
-    try { await db.importAll(JSON.parse(await readFileAsText(f))); toast('Yedek içe aktarıldı'); location.reload(); }
-    catch (err) { toast(err.message || 'Dosya okunamadı'); }
+    try {
+      const d = JSON.parse(await readFileAsText(f));
+      if (d.tip === 'belge' && d.belge) { for (const q of d.questions || []) await db.put('questions', q); const doc = { ...d.belge, updated: Date.now() }; if (await db.get('documents', doc.id)) doc.id = crypto.randomUUID(); await db.put('documents', doc); location.hash = '#/belge/' + doc.id; return; }
+      await db.importAll(d); toast('Yedek içe aktarıldı'); location.reload();
+    } catch (err) { toast(err.message || 'Dosya okunamadı'); }
   } } });
 
   app.append(
@@ -79,4 +84,24 @@ function countOf(d) {
   if (d.kind === 'foy') return (d.blocks || []).length + ' blok';
   if (d.kind === 'deneme') return (d.sections || []).reduce((a, s) => a + (s.qids || []).length, 0) + ' soru';
   return (d.items || []).length + ' soru';
+}
+
+// ---------- Kısa tur ----------
+const TOUR = [
+  ['marka', 'Önce marka kimliğinizi kurun: logo, renk, hazır tasarımlar. Her belgede kendiliğinden uygulanır.'],
+  ['havuz', 'Soru havuzu: hazır kimya bankalarını ekleyin, PDF’ten kırpın ya da kendi sorunuzu yazın.'],
+  ['test', 'Bir belge türü seçin; sorular havuzdan gelir, sayfa düzeni A4’e göre kendiliğinden kurulur.'],
+  ['sinav', 'Hazırladığınız testi ekrandan, bağlantıyla ya da kâğıtla sınav yapın; sonuçlar ve karneler burada.'],
+];
+export function startTour(i = 0) {
+  document.querySelectorAll('.tour,.tour-hl').forEach(e => e.classList?.contains('tour') ? e.remove() : e.classList.remove('tour-hl'));
+  if (i >= TOUR.length) return;
+  const [key, text] = TOUR[i];
+  const el = document.querySelector(`[data-tour="${key}"]`); if (!el) return;
+  el.scrollIntoView({ block: 'center' }); el.classList.add('tour-hl');
+  const r = el.getBoundingClientRect();
+  const box = h('div.tour', { style: { left: Math.min(r.left, innerWidth - 340) + 'px', top: (r.bottom + 12 + 160 > innerHeight ? r.top - 150 : r.bottom + 12) + 'px' } },
+    h('div', { style: { fontSize: '.8rem', opacity: .7 } }, `${i + 1} / ${TOUR.length}`), h('p', { style: { margin: '6px 0 10px' } }, text),
+    h('div.row', h('button.btn.btn-sm', { on: { click: () => startTour(99) } }, 'Kapat'), h('span.spacer'), h('button.btn.btn-sm.btn-accent', { on: { click: () => startTour(i + 1) } }, i + 1 < TOUR.length ? 'Sonraki →' : 'Bitir')));
+  document.body.append(box);
 }

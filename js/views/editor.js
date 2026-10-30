@@ -1,136 +1,245 @@
-import { h, toast, uid, confirmBox, readFileAsDataURL, shrinkImage, $ } from '../util.js';
+import { h, toast, uid, confirmBox, readFileAsDataURL, readFileAsText, shrinkImage, download, modal, $ } from '../util.js';
 import { db, getBrand } from '../db.js';
-import { KINDS, DENEME_PRESETS, renderDoc } from '../render.js';
-import { pickQuestions, editQuestion, qCard } from './pool.js';
+import { KINDS, DENEME_TURLERI, denemeTuru, renderDoc, defaultAyar, setKatex, FOY_LABELS } from '../render.js';
+import { HEADERS, TEMPLATES, PAGE_NUMS, Q_NUMS, BODY_FONTS, TITLE_FONTS, FOOTERS, SIZES, PAPERS, ensureFonts, loadKatex } from '../design.js';
+import { pickQuestions, editQuestion, qCard, cropTool } from './pool.js';
 import { createExamFromDoc } from './exams.js';
 
-const FOY_TYPES = { baslik: 'Başlık', anlatim: 'Anlatım', formul: 'Formül', ornek: 'Örnek', uyari: 'Dikkat', not: 'Not', alistirma: 'Sıra sizde', soru: 'Havuzdan soru', sayfa: 'Sayfa sonu' };
+const FOY_TYPES = { paragraf: 'Paragraf', arabaslik: 'Ara Başlık', baslik: 'Konu Başlığı', not: 'NOT', dikkat: 'DİKKAT', ornek: 'Örnek', alistirma: 'Sıra Sizde', kural: 'KURAL', tanim: 'TANIM', puf: 'PÜF NOKTASI', formul: 'Formül', gorsel: 'Görsel', ayrac: 'Ayraç', bosluk: 'Boşluk', soru: 'Havuzdan soru', sayfa: 'Sayfa sonu' };
 const SINIFLAR = Array.from({ length: 12 }, (_, i) => (i + 1) + '. Sınıf').concat(['Mezun']);
+export const KIMLER = {
+  foy: [['Branş öğretmeni', 'Konuyu kendi anlatım sırasına dizer; not, dikkat ve örnek kutularıyla ders notunu çıkarır.'], ['Özel ders veren', 'Öğrencisine kendi logosu ve iletişim bilgisiyle basılmış föy bırakır.'], ['Kurs ve etüt merkezi', 'Konu konu föy serisi üretir; hepsi aynı marka kimliğinde çıkar.'], ['Zümre', 'Çözümleri gizleyip öğrenci sürümünü, gösterip öğretmen sürümünü aynı belgeden basar.']],
+  test: [['Branş öğretmeni', 'Ders sonu pekiştirme testi hazırlar; iki sütunlu düzen, anahtar ayrı sayfada.'], ['Zümre', 'Aynı öğrenme çıktısını bütün şubelerde ölçen ortak tarama testi çıkarır.'], ['Kurs ve etüt merkezi', 'Haftalık ödev testi serisini kendi markasıyla basar.'], ['Soru biriktiren', 'Havuzdaki soruları seçip dakikalar içinde sayfaya dizer.']],
+  yazili: [['Branş öğretmeni', 'Dönem yazılısını puan çizelgesi, süre ve veli imzasıyla hazırlar.'], ['Okul idaresi', 'Ortak yazılıyı tek şablondan bütün şubelere verir.'], ['Karma sınav yapan', 'Açık uçlu, boşluk doldurma, doğru-yanlış ve çoktan seçmeliyi aynı kâğıtta toplar.'], ['Fotokopiyle çoğaltan', '“Sade ve Ekonomik” tasarımlar siyah-beyaz baskıda toner yakmaz.']],
+  deneme: [['Kurum ve kurs', 'LGS, TYT, AYT ya da genel deneme kitapçığı üretir; bölümlü ve süreli.'], ['Sınav uygulayan', 'A ve B kitapçığını birlikte basar; sorular ve şıklar karışır.'], ['Değerlendiren', 'Optik form ve cevap anahtarı kitapçıkla gelir; net formülü sınav ailesinden.'], ['Rehber öğretmen', 'Deneme sonrası çözümleme için hazır anahtar ve öğrenme çıktısı sayfası.']],
+  banka: [['Branş öğretmeni', 'Yıl boyu biriken soruları kapaklı, içindekilerli tek kitaba çevirir.'], ['Yayın hazırlayan', 'Kendi soru kitabını kendi markasıyla basar.'], ['Zümre', 'Ortak havuzdan sınıf seviyesine göre derleme yapar.'], ['Arşivleyen', 'Konu konu bölümler; isterseniz her bölüm 1’den numaralanır.']],
+};
 
-function newDoc(kind) {
-  const d = { id: uid(), kind, title: KINDS[kind].ad, meta: { sinif: '', ders: '', konu: '', sure: kind === 'test' ? '40 dk' : kind === 'yazili' ? '40 dk' : '' }, kitapcik: kind === 'foy' || kind === 'banka' ? '' : 'A', seed: Math.floor(Math.random() * 1e6), options: { cols: kind === 'foy' ? 1 : 2, anahtar: true, optik: false }, created: Date.now(), updated: Date.now() };
-  if (kind === 'foy') d.blocks = [{ id: uid(), t: 'baslik', text: 'Konu başlığı' }, { id: uid(), t: 'anlatim', text: 'Konu anlatımınızı buraya yazın.' }, { id: uid(), t: 'ornek', text: 'Örnek soru', cevap: 'Çözüm' }];
-  else if (kind === 'deneme') { d.meta.tur = 'LGS'; d.meta.sure = DENEME_PRESETS.LGS.sure; d.sections = DENEME_PRESETS.LGS.bolumler.map(([name, hedef]) => ({ id: uid(), name, hedef, qids: [] })); d.options.optik = true; }
-  else d.items = [];
+export function newDoc(kind, opts = {}) {
+  const d = { id: uid(), kind, title: KINDS[kind].ad, meta: { sinif: '', ders: '', konu: '', sure: kind === 'test' || kind === 'yazili' ? '40 dk' : '' }, seed: Math.floor(Math.random() * 1e6), ayar: defaultAyar(kind), created: Date.now(), updated: Date.now() };
+  if (kind === 'foy') d.blocks = [];
+  else if (kind === 'deneme') {
+    const t = denemeTuru(opts.tur || 'serbest');
+    d.meta.tur = t.id; d.meta.sure = t.sure ? t.sure + ' dk' : ''; d.title = t.ad + ' Denemesi';
+    d.sections = t.bolumler.map(b => ({ id: uid(), name: b.name, hedef: b.n, qids: [], sure: b.sure || '' }));
+  } else d.items = [];
+  if (opts.qids?.length) {
+    if (kind === 'foy') d.blocks = opts.qids.map(qid => ({ id: uid(), t: 'soru', qid }));
+    else if (kind === 'deneme') d.sections[0].qids = opts.qids.slice();
+    else d.items = opts.qids.map(qid => ({ qid, puan: 0 }));
+  }
   return d;
 }
+function migrate(doc) {
+  if (!doc.ayar) {
+    doc.ayar = { ...defaultAyar(doc.kind) };
+    const o = doc.options || {};
+    if (o.cols) doc.ayar.cols = o.cols; if (o.anahtar === false) doc.ayar.anahtar = false; if (o.optik) doc.ayar.optik = true;
+    if (doc.kitapcik === 'B') doc.ayar.kitapciklar = ['B'];
+  }
+  if (doc.kind === 'deneme' && doc.meta?.tur && !denemeTuru(doc.meta.tur)) doc.meta.tur = 'serbest';
+  return doc;
+}
 
-export async function editorView(app, { id, kind }) {
-  let doc = id ? await db.get('documents', id) : newDoc(kind);
+// ---------- Giriş ekranı ----------
+export async function introView(app, kind, opts = {}) {
+  let tur = 'lgs-sayisal';
+  const start = async () => { const d = newDoc(kind, { tur, qids: opts.qids }); await db.put('documents', d); location.hash = '#/belge/' + d.id; };
+  const turBox = kind === 'deneme' ? h('div.card', { style: { marginTop: '12px' } }, h('h3', 'Deneme türü'), ...DENEME_TURLERI.map(a => h('div', { style: { marginTop: '10px' } },
+    h('div', h('b', a.aile), h('span.small.muted', '  ' + a.not)),
+    ...[...new Set(a.turler.map(t => t.grup))].map(g => h('div', h('div.small.muted', { style: { margin: '6px 0 4px' } }, g), h('div.grid.grid-2', { style: { gap: '6px' } }, a.turler.filter(t => t.grup === g).map(t => {
+      const n = t.bolumler.reduce((x, b) => x + b.n, 0);
+      return h('label.item-row', { style: { cursor: 'pointer' } }, h('input', { type: 'radio', name: 'tur', checked: t.id === tur, on: { change: () => { tur = t.id; } } }), h('span.txt', h('b', t.ad), h('span.small.muted', '  ' + [n ? n + ' soru' : '', t.sure ? t.sure + ' dk' : '', a.sik + ' şık'].filter(Boolean).join(' · '))));
+    }))))))) : null;
+  app.append(
+    h('a.btn.btn-sm.btn-ghost', { href: '#/' }, '← Tür seçimine dön'),
+    h('h1', { style: { marginTop: '8px' } }, KINDS[kind].ad), h('p.muted', KINDS[kind].aciklama),
+    kind === 'foy' ? h('div.card', h('p', { style: { margin: 0 } }, 'Föyü boş başlatıp bloklarla kurabilir ya da hazır notlarınızı yapıştırıp otomatik bloklara böldürebilirsiniz.')) : null,
+    opts.qids?.length ? h('div.card', h('b', opts.qids.length + ' seçili soru'), ' bu belgeye eklenecek.') : null,
+    turBox,
+    h('button.btn.btn-accent', { style: { width: '100%', marginTop: '14px', padding: '14px', fontSize: '1.05rem' }, on: { click: start } }, 'Başla →'),
+    h('div.eyebrow', 'Kimler, ne için kullanıyor'),
+    h('ul', KIMLER[kind].map(([a, b]) => h('li', { style: { marginBottom: '6px' } }, h('b', a), ' — ', b))));
+}
+
+// ---------- Editör ----------
+export async function editorView(app, { id }) {
+  ensureFonts();
+  let doc = await db.get('documents', id);
   if (!doc) { app.append(h('div.card', 'Belge bulunamadı. ', h('a', { href: '#/belgeler' }, 'Belgelerime dön'))); return; }
-  const brand = await getBrand();
+  migrate(doc);
+  let brand = await getBrand();
   let qmap = Object.fromEntries((await db.all('questions')).map(q => [q.id, q]));
   let teacher = false;
-  let isNew = !id;
+  let stampMode = null;
+  const A = () => doc.ayar;
+  loadKatex().then(k => { if (k) { setKatex(k); refresh(); } });
+
+  // ---- Geri al / yinele ----
+  const past = [], future = [];
+  let lastSnap = JSON.stringify(doc);
+  const snapshot = () => { const s = JSON.stringify(doc); if (s !== lastSnap) { past.push(lastSnap); if (past.length > 80) past.shift(); lastSnap = s; future.length = 0; updUndo(); } };
+  const restore = s => { doc = JSON.parse(s); lastSnap = s; drawAll(); save(true); };
+  const undo = () => { if (!past.length) return; future.push(JSON.stringify(doc)); restore(past.pop()); updUndo(); };
+  const redo = () => { if (!future.length) return; past.push(JSON.stringify(doc)); restore(future.pop()); updUndo(); };
+  const undoBtn = h('button.btn.btn-sm', { title: 'Geri al (Ctrl+Z)', on: { click: undo } }, '↶');
+  const redoBtn = h('button.btn.btn-sm', { title: 'Yinele (Ctrl+Y)', on: { click: redo } }, '↷');
+  const updUndo = () => { undoBtn.disabled = !past.length; redoBtn.disabled = !future.length; };
+  const onKey = e => {
+    if (!(e.ctrlKey || e.metaKey) || e.target.tagName === 'TEXTAREA' || (e.target.tagName === 'INPUT' && !['checkbox', 'radio', 'range', 'button'].includes(e.target.type))) return;
+    if (e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+    else if (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+  };
+  document.addEventListener('keydown', onKey);
 
   // ---- Önizleme ----
   const pages = h('div');
   const scaleBox = h('div.preview-scale', pages);
   const area = h('div.preview-area', scaleBox);
   const pageInfo = h('span.small.muted');
+  let scale = 1;
   const fitScale = () => {
-    const s = Math.min(1, (area.clientWidth - 36) / 794);
-    scaleBox.style.transform = `scale(${s})`; scaleBox.style.width = '794px';
-    scaleBox.style.height = (pages.offsetHeight * s) + 'px';
+    const pw = (PAPERS[A().kagit] || PAPERS.A4)[0] * 3.7795;
+    scale = Math.min(1, (area.clientWidth - 36) / pw);
+    scaleBox.style.transform = `scale(${scale})`; scaleBox.style.width = pw + 'px';
+    scaleBox.style.height = (pages.offsetHeight * scale) + 'px';
   };
   let rt, rendering = Promise.resolve();
   const refresh = () => { clearTimeout(rt); rt = setTimeout(() => { rendering = rendering.then(async () => {
     const n = await renderDoc(pages, doc, qmap, brand, { teacher });
-    pageInfo.textContent = n + ' sayfa';
-    fitScale();
-  }); }, 150); };
+    pageInfo.textContent = n + ' sayfa'; fitScale(); bindStamps();
+  }); }, 160); };
   window.addEventListener('resize', fitScale);
+
+  // Sayfaya damga: tıkla-yerleştir, sürükle-taşı
+  function bindStamps() {
+    pages.querySelectorAll('.sheet').forEach((sh, pg) => {
+      sh.onclick = e => {
+        if (!stampMode) return;
+        const r = sh.getBoundingClientRect();
+        (doc.damgalar ||= []).push({ id: uid(), pg, sid: stampMode, x: (e.clientX - r.left) / r.width * 100, y: (e.clientY - r.top) / r.height * 100 });
+        stampMode = null; area.style.cursor = ''; changed(); toast('Damga basıldı — sürükleyerek taşıyabilirsiniz');
+      };
+      sh.querySelectorAll('[data-stamp]').forEach(img => {
+        img.onpointerdown = ev => {
+          ev.preventDefault(); ev.stopPropagation(); img.setPointerCapture(ev.pointerId);
+          const r = sh.getBoundingClientRect(); const st = (doc.damgalar || []).find(x => x.id === img.dataset.stamp);
+          img.onpointermove = mv => { st.x = (mv.clientX - r.left) / r.width * 100; st.y = (mv.clientY - r.top) / r.height * 100; img.style.left = st.x + '%'; img.style.top = st.y + '%'; };
+          img.onpointerup = () => { img.onpointermove = null; changed(); };
+        };
+        img.ondblclick = () => { doc.damgalar = doc.damgalar.filter(x => x.id !== img.dataset.stamp); changed(); };
+      });
+    });
+  }
 
   // ---- Kaydet ----
   let st;
-  const save = () => { clearTimeout(st); st = setTimeout(async () => {
-    doc.updated = Date.now(); await db.put('documents', doc);
-    if (isNew) { isNew = false; history.replaceState(null, '', '#/belge/' + doc.id); }
-  }, 300); };
-  const changed = () => { save(); refresh(); };
+  const save = (now) => { clearTimeout(st); st = setTimeout(async () => { doc.updated = Date.now(); await db.put('documents', doc); await db.kvSet('sonBelge', doc.id); }, now ? 0 : 300); };
+  let snapT;
+  const changed = () => { save(); refresh(); clearTimeout(snapT); snapT = setTimeout(snapshot, 350); };
 
-  // ---- Genel ayarlar ----
-  const metaFld = (label, key, attrs = {}) => h('label.fld', label, h('input', { value: doc.meta[key] || '', ...attrs, on: { input: e => { doc.meta[key] = e.target.value; changed(); } } }));
-  const general = h('div.card',
-    h('label.fld', 'Belge başlığı', h('input', { value: doc.title, on: { input: e => { doc.title = e.target.value; changed(); } } })),
-    h('div.form-grid', { style: { marginTop: '10px' } },
-      h('label.fld', 'Sınıf', h('select', { value: doc.meta.sinif || '', on: { change: e => { doc.meta.sinif = e.target.value; changed(); } } }, h('option', { value: '' }, '—'), SINIFLAR.map(s => h('option', { value: s }, s)))),
-      metaFld('Ders', 'ders'),
-      doc.kind !== 'deneme' ? metaFld('Konu', 'konu') : null,
-      doc.kind !== 'foy' && doc.kind !== 'banka' ? metaFld('Süre', 'sure', { placeholder: '40 dk' }) : null));
-
-  const optionsCard = h('div.card', h('h3', 'Seçenekler'), h('div', { style: { display: 'grid', gap: '10px' } },
-    doc.kitapcik !== '' ? h('div.row', h('b.small', 'Kitapçık'), seg(['A', 'B'], doc.kitapcik, v => { doc.kitapcik = v; changed(); }), h('span.small.muted', 'B: aynı sorular, karışık sıra')) : null,
-    ['foy', 'banka', 'test'].includes(doc.kind) ? h('div.row', h('b.small', 'Sütun'), seg(['1', '2'], String(doc.options.cols || 2), v => { doc.options.cols = +v; changed(); })) : null,
-    doc.kind !== 'yazili' ? check('Cevap anahtarı sayfası ekle', doc.options.anahtar !== false, v => { doc.options.anahtar = v; changed(); }) : null,
-    ['test', 'deneme'].includes(doc.kind) ? check('Optik form sayfası ekle', !!doc.options.optik, v => { doc.options.optik = v; changed(); }) : null,
-    doc.kind === 'banka' ? check('Konu başlıklarıyla böl', doc.options.konuBaslik !== false, v => { doc.options.konuBaslik = v; changed(); }) : null,
-    check('Öğretmen sürümü (cevap ve çözümler görünsün)', teacher, v => { teacher = v; refresh(); }),
-  ));
-
-  // ---- İçerik ----
   const content = h('div.card');
-  const drawContent = () => {
-    content.innerHTML = '';
-    if (doc.kind === 'foy') drawFoy(); else if (doc.kind === 'deneme') drawDeneme(); else drawItems();
+  const settings = h('div');
+  const drawAll = () => { drawContent(); drawSettings(); refresh(); };
+
+  // ---------- İçerik ----------
+  const reloadQ = async () => { qmap = Object.fromEntries((await db.all('questions')).map(q => [q.id, q])); };
+  const qLabel = q => q ? (q.text ? q.text.replace(/[*_{}^=!+]/g, '').replace(/\s+/g, ' ').slice(0, 60) : '🖼 Görsel soru') + (q.answer ? ' · ' + q.answer : '') : '(silinmiş soru)';
+  const move = (arr, i, d) => { const j = i + d; if (j < 0 || j >= arr.length) return; [arr[i], arr[j]] = [arr[j], arr[i]]; };
+  const filterForDoc = () => {
+    const s = doc.meta?.sinif, d = doc.meta?.ders;
+    return { sinif: s || '', ders: d || '' };
   };
 
-  const reloadQ = async () => { qmap = Object.fromEntries((await db.all('questions')).map(q => [q.id, q])); };
-  const qLabel = q => q ? (q.text ? q.text.replace(/\s+/g, ' ').slice(0, 60) : '🖼 Görsel soru') + (q.answer ? ' · ' + q.answer : '') : '(silinmiş soru)';
-  const move = (arr, i, d) => { const j = i + d; if (j < 0 || j >= arr.length) return; [arr[i], arr[j]] = [arr[j], arr[i]]; };
+  function drawContent() {
+    content.innerHTML = '';
+    if (doc.kind === 'foy') drawFoy(); else if (doc.kind === 'deneme') drawDeneme(); else drawItems();
+  }
 
   function drawItems() {
     const items = doc.items;
-    const total = items.reduce((a, b) => a + (+b.puan || 0), 0);
-    content.append(h('div.row', h('h3', { style: { margin: 0 } }, 'Sorular (' + items.length + ')'), h('span.spacer'),
-      h('button.btn.btn-sm.btn-primary', { on: { click: async () => { const ids = await pickQuestions({ exclude: items.map(i => i.qid) }); if (!ids?.length) return; await reloadQ(); ids.forEach(qid => items.push({ qid, puan: 0 })); if (doc.kind === 'yazili') equalize(); drawContent(); changed(); } } }, '+ Havuzdan'),
-      h('button.btn.btn-sm', { on: { click: () => editQuestion(null, async q => { await reloadQ(); items.push({ qid: q.id, puan: 0 }); if (doc.kind === 'yazili') equalize(); drawContent(); changed(); }) } }, '+ Yeni yaz')));
+    const qItems = items.filter(i => i.type !== 'kok');
+    const total = qItems.reduce((a, b) => a + (+b.puan || 0), 0);
+    content.append(h('div.row', h('h3', { style: { margin: 0 } }, 'Kâğıt (' + qItems.length + ' soru)'), h('span.spacer'),
+      h('button.btn.btn-sm.btn-primary', { on: { click: async () => { const ids = await pickQuestions({ exclude: qItems.map(i => i.qid), preset: filterForDoc() }); if (!ids?.length) return; await reloadQ(); ids.forEach(qid => items.push({ qid, puan: 0 })); if (doc.kind === 'yazili') equalize(); drawContent(); changed(); } } }, '+ Havuzdan'),
+      h('button.btn.btn-sm', { on: { click: () => editQuestion(null, async q => { await reloadQ(); items.push({ qid: q.id, puan: 0 }); if (doc.kind === 'yazili') equalize(); drawContent(); changed(); }, { preset: { sinif: doc.meta.sinif, ders: doc.meta.ders, konu: doc.meta.konu } }) } }, '+ Yeni yaz'),
+      h('button.btn.btn-sm', { title: 'Sorunun üstüne ortak kök ya da bilgi kutusu', on: { click: () => editKok(null, k => { items.push(k); drawContent(); changed(); }) } }, '+ Ortak kök')));
     if (doc.kind === 'yazili') {
       content.append(h('div.row', { style: { margin: '8px 0' } }, h('span', 'Toplam puan: ', h('b', String(total))), h('span.spacer'), h('button.btn.btn-sm', { on: { click: () => { equalize(); drawContent(); changed(); } } }, 'Eşit dağıt')));
-      if (items.length && total !== 100) content.append(h('div.warn', `Puanların toplamı ${total}. Yazılı sınavda toplam 100 olmalı.`));
+      if (qItems.length && total !== 100) content.append(h('div.warn', `Puanların toplamı ${total}. Yazılı sınavda toplam 100 olmalı.`));
     }
-    if (!items.length) content.append(h('p.muted.small', 'Henüz soru yok. Havuzdan seçin ya da yeni soru yazın.'));
+    if (!items.length) content.append(h('p.muted.small', 'Henüz soru yok. Havuzdan seçin, yeni soru yazın ya da üstteki ✂ ile PDF’ten kırpın.'));
     const list = h('div', { style: { display: 'grid', gap: '6px', marginTop: '8px' } });
+    let n = 0;
     items.forEach((it, i) => {
+      if (it.type === 'kok') {
+        list.append(h('div.item-row', { style: { background: '#f4f8fc' } }, h('b', '◆'), h('span.txt', 'Ortak kök: ' + (it.text || '').slice(0, 50)),
+          h('button.icon-btn', { title: 'Düzenle', on: { click: () => editKok(it, () => { drawContent(); changed(); }) } }, '✎'),
+          h('button.icon-btn', { on: { click: () => { move(items, i, -1); drawContent(); changed(); } } }, '↑'),
+          h('button.icon-btn', { on: { click: () => { move(items, i, 1); drawContent(); changed(); } } }, '↓'),
+          h('button.icon-btn', { on: { click: () => { items.splice(i, 1); drawContent(); changed(); } } }, '✕')));
+        return;
+      }
+      n++;
       list.append(h('div.item-row',
-        h('b', String(i + 1)),
+        h('b', String(n)),
         h('span.txt', { title: qLabel(qmap[it.qid]) }, qLabel(qmap[it.qid])),
-        doc.kind === 'yazili' ? h('input.inp', { type: 'number', min: 0, value: it.puan ?? 0, on: { change: e => { it.puan = +e.target.value; drawContent(); changed(); } } }) : null,
-        h('button.icon-btn', { title: 'Düzenle', on: { click: () => qmap[it.qid] && editQuestion(qmap[it.qid], async () => { await reloadQ(); drawContent(); refresh(); }) } }, '✎'),
+        doc.kind === 'yazili' ? h('input.inp', { type: 'number', min: 0, value: it.puan ?? 0, title: 'Puan', on: { change: e => { it.puan = +e.target.value; drawContent(); changed(); } } }) : null,
+        (A().cols || 2) > 1 ? h('button.icon-btn', { title: 'Soruyu iki sütuna yay (tam genişlik)', style: it.genis ? { color: 'var(--orange)' } : null, on: { click: () => { it.genis = !it.genis; drawContent(); changed(); } } }, '⇔') : null,
+        h('button.icon-btn', { title: 'Düzenle / çözüm yaz', on: { click: () => qmap[it.qid] && editQuestion(qmap[it.qid], async () => { await reloadQ(); drawContent(); refresh(); }) } }, '✎'),
         h('button.icon-btn', { title: 'Yukarı', on: { click: () => { move(items, i, -1); drawContent(); changed(); } } }, '↑'),
         h('button.icon-btn', { title: 'Aşağı', on: { click: () => { move(items, i, 1); drawContent(); changed(); } } }, '↓'),
-        h('button.icon-btn', { title: 'Çıkar', on: { click: () => { items.splice(i, 1); drawContent(); changed(); } } }, '✕')));
+        h('button.icon-btn', { title: 'Kâğıttan çıkar', on: { click: () => { items.splice(i, 1); drawContent(); changed(); } } }, '✕')));
     });
     content.append(list);
   }
   function equalize() {
-    const n = doc.items.length; if (!n) return;
+    const qi = doc.items.filter(i => i.type !== 'kok'); const n = qi.length; if (!n) return;
     const base = Math.floor(100 / n), extra = 100 - base * n;
-    doc.items.forEach((it, i) => { it.puan = base + (i >= n - extra ? 1 : 0); });
+    qi.forEach((it, i) => { it.puan = base + (i >= n - extra ? 1 : 0); });
+  }
+  function editKok(k, onSave) {
+    const d = k || { type: 'kok', text: '', baslik: '', image: '' };
+    const ta = h('textarea.inp', { rows: 5, value: d.text, placeholder: 'Ortak metin, tablo açıklaması ya da bilgi kutusu' });
+    const bs = h('input.inp', { value: d.baslik, placeholder: 'Başlık (boşsa: “Aşağıdaki soruları bu bilgilere göre cevaplayınız.”)' });
+    const img = h('img', { src: d.image || '', style: { maxHeight: '120px', display: d.image ? 'block' : 'none' } });
+    const fi = h('input', { type: 'file', accept: 'image/*', hidden: true, on: { change: async e => { const f = e.target.files[0]; if (!f) return; d.image = await shrinkImage(await readFileAsDataURL(f)); img.src = d.image; img.style.display = 'block'; } } });
+    let m;
+    m = modal(k ? 'Ortak kökü düzenle' : 'Ortak kök / bilgi kutusu', h('div', { style: { display: 'grid', gap: '10px' } }, bs, ta, h('div.row', h('button.btn.btn-sm', { on: { click: () => fi.click() } }, '🖼 Görsel'), fi), img,
+      h('label.check', h('input', { type: 'checkbox', checked: d.genis !== false, on: { change: e => { d.genis = e.target.checked; } } }), 'Tam genişlikte bas')),
+      { actions: [h('button.btn.btn-primary', { on: { click: () => { d.text = ta.value; d.baslik = bs.value; if (d.genis === undefined) d.genis = true; m.close(); onSave(d); } } }, 'Kaydet')] });
   }
 
   function drawDeneme() {
-    const presetSel = h('select.inp', { value: doc.meta.tur || 'LGS', on: { change: async e => {
-      const v = e.target.value;
-      const hasQ = doc.sections.some(s => s.qids.length);
-      if (hasQ && !await confirmBox('Bölümler yeniden kurulsun mu? Eklediğiniz sorular bölümlerden çıkarılır (havuzda kalır).', 'Yeniden kur')) { e.target.value = doc.meta.tur; return; }
-      doc.meta.tur = v; doc.meta.sure = DENEME_PRESETS[v].sure;
-      doc.sections = DENEME_PRESETS[v].bolumler.map(([name, hedef]) => ({ id: uid(), name, hedef, qids: [] }));
-      drawContent(); changed();
-    } } }, Object.keys(DENEME_PRESETS).map(k => h('option', { value: k }, k)));
-    content.append(h('div.row', h('h3', { style: { margin: 0 } }, 'Bölümler'), h('span.spacer'), h('label.fld', { style: { flexDirection: 'row', alignItems: 'center' } }, 'Düzen ', presetSel)));
+    const t = denemeTuru(doc.meta.tur) || denemeTuru('serbest');
+    content.append(h('div.row', h('h3', { style: { margin: 0 } }, 'Bölümler'), h('span.spacer'), h('span.small.muted', t.ad + ' · ' + t.sik + ' şık')),
+      h('div.row', { style: { margin: '8px 0' } },
+        h('button.btn.btn-sm', { on: { click: async () => {
+          const pool = (await db.all('questions')).filter(q => (q.type || 'coktan') === 'coktan');
+          const used = new Set(doc.sections.flatMap(s => s.qids));
+          let added = 0;
+          for (const sec of doc.sections) {
+            const need = (sec.hedef || 0) - sec.qids.length; if (need <= 0) continue;
+            const key = sec.name.toLocaleLowerCase('tr-TR').split(/[ –-]/)[0];
+            const cands = pool.filter(q => !used.has(q.id) && (q.ders || '').toLocaleLowerCase('tr-TR').includes(key) && (!doc.meta.sinif || !q.sinif || q.sinif === doc.meta.sinif));
+            for (const q of cands.slice(0, need)) { sec.qids.push(q.id); used.add(q.id); added++; }
+          }
+          drawContent(); changed(); toast(added ? added + ' soru havuzdan yerleştirildi' : 'Bölüm adlarıyla eşleşen ders etiketli soru bulunamadı');
+        } } }, '⚡ Havuzdan otomatik doldur'),
+        h('button.btn.btn-sm', { on: { click: () => chooseTur() } }, 'Türü değiştir')));
     doc.sections.forEach((sec, si) => {
       const n = sec.qids.length;
       const box = h('div.block-ed', { style: { marginTop: '10px' } },
         h('div.row', { style: { flexWrap: 'nowrap' } },
           h('input.inp', { value: sec.name, on: { input: e => { sec.name = e.target.value; changed(); } } }),
+          h('input.inp', { type: 'number', min: 0, value: sec.sure || '', placeholder: 'dk', title: 'Bölüm süresi (dk)', style: { width: '64px' }, on: { input: e => { sec.sure = e.target.value; changed(); } } }),
           h('button.icon-btn', { title: 'Bölümü sil', on: { click: async () => { if (await confirmBox('“' + sec.name + '” bölümü silinsin mi?', 'Sil')) { doc.sections.splice(si, 1); drawContent(); changed(); } } } }, '✕')),
         h('div.row.small', h('span', h('b', String(n)), sec.hedef ? ' / ' + sec.hedef + ' soru' : ' soru'),
           sec.hedef && n !== sec.hedef ? h('span', { style: { color: n > sec.hedef ? 'var(--bad)' : 'var(--muted)' } }, n > sec.hedef ? '(fazla)' : '(eksik)') : null,
           h('span.spacer'),
           h('button.btn.btn-sm.btn-primary', { on: { click: async () => {
             const used = doc.sections.flatMap(s => s.qids);
-            const ids = await pickQuestions({ exclude: used, title: sec.name + ' — havuzdan seç' });
+            const ids = await pickQuestions({ exclude: used, title: sec.name + ' — havuzdan seç', preset: { sinif: doc.meta.sinif || '' } });
             if (!ids?.length) return; await reloadQ(); sec.qids.push(...ids); drawContent(); changed();
           } } }, '+ Soru')),
         h('div', { style: { display: 'grid', gap: '4px' } }, sec.qids.map((qid, i) => h('div.item-row', h('b', String(i + 1)), h('span.txt', qLabel(qmap[qid])),
@@ -140,74 +249,232 @@ export async function editorView(app, { id, kind }) {
       content.append(box);
     });
     content.append(h('button.btn.btn-sm', { style: { marginTop: '10px' }, on: { click: () => { doc.sections.push({ id: uid(), name: 'Yeni bölüm', hedef: 0, qids: [] }); drawContent(); changed(); } } }, '+ Bölüm ekle'));
-    content.append(h('label.fld', { style: { marginTop: '12px' } }, 'Kapak yönergesi', h('textarea', { rows: 2, value: doc.meta.yonerge || '', placeholder: 'Cevaplarınızı optik forma kurşun kalemle işaretleyiniz…', on: { input: e => { doc.meta.yonerge = e.target.value; changed(); } } })));
+  }
+  function chooseTur() {
+    let m; const opts = [];
+    DENEME_TURLERI.forEach(a => a.turler.forEach(t => opts.push(h('button.btn', { style: { justifyContent: 'flex-start' }, on: { click: async () => {
+      const has = doc.sections.some(s => s.qids.length);
+      if (has && !await confirmBox('Bölümler yeniden kurulsun mu? Eklenen sorular bölümlerden çıkarılır (havuzda kalır).', 'Yeniden kur')) return;
+      doc.meta.tur = t.id; doc.meta.sure = t.sure ? t.sure + ' dk' : '';
+      doc.sections = t.bolumler.map(b => ({ id: uid(), name: b.name, hedef: b.n, qids: [], sure: b.sure || '' }));
+      m.close(); drawAll(); changed();
+    } } }, a.aile + ' · ' + t.ad))));
+    m = modal('Deneme türü', h('div', { style: { display: 'grid', gap: '6px', maxHeight: '60vh', overflow: 'auto' } }, opts));
   }
 
   function drawFoy() {
     const blocks = doc.blocks;
-    content.append(h('h3', 'Bloklar'));
-    const list = h('div', { style: { display: 'grid', gap: '8px' } });
+    content.append(h('div.row', h('h3', { style: { margin: 0 } }, 'Bloklar'), h('span.spacer'),
+      h('button.btn.btn-sm', { on: { click: bulkPaste } }, '📋 Notları yapıştır'),
+      !blocks.length ? h('button.btn.btn-sm', { on: { click: () => { doc.blocks = sampleFoy(); drawContent(); changed(); } } }, 'Örnek föyü aç') : null));
+    const list = h('div', { style: { display: 'grid', gap: '8px', marginTop: '8px' } });
+    const addMenu = (at) => h('div.row', { style: { gap: '4px' } }, Object.entries(FOY_TYPES).map(([t, l]) => h('button.btn.btn-sm', { style: { padding: '3px 7px', fontSize: '.78rem' }, on: { click: async () => {
+      if (t === 'soru') { const ids = await pickQuestions({ preset: filterForDoc() }); if (!ids?.length) return; await reloadQ(); blocks.splice(at, 0, ...ids.map(qid => ({ id: uid(), t: 'soru', qid }))); }
+      else blocks.splice(at, 0, { id: uid(), t, text: '' });
+      drawContent(); changed();
+    } } }, '+ ' + l)));
     blocks.forEach((b, i) => {
-      const head = h('div.bh', FOY_TYPES[b.t], h('span.spacer'),
+      const head = h('div.bh', FOY_TYPES[b.t] || b.t, h('span.spacer'),
+        h('button.icon-btn', { title: 'Buraya blok ekle', on: { click: e => { const x = e.target.closest('.block-ed'); const ex = x.querySelector('.addhere'); if (ex) ex.remove(); else x.append(h('div.addhere', addMenu(i + 1))); } } }, '+'),
         h('button.icon-btn', { on: { click: () => { move(blocks, i, -1); drawContent(); changed(); } } }, '↑'),
         h('button.icon-btn', { on: { click: () => { move(blocks, i, 1); drawContent(); changed(); } } }, '↓'),
-        h('button.icon-btn', { on: { click: () => { blocks.splice(i, 1); drawContent(); changed(); } } }, '✕'));
+        h('button.icon-btn', { title: 'Bloğu sil', on: { click: () => { blocks.splice(i, 1); drawContent(); changed(); } } }, '✕'));
       const ed = h('div.block-ed', head);
       if (b.t === 'soru') ed.append(qmap[b.qid] ? qCard(qmap[b.qid]) : h('i.muted', 'Silinmiş soru'));
       else if (b.t === 'sayfa') ed.append(h('span.small.muted', 'Sonraki blok yeni sayfadan başlar.'));
+      else if (b.t === 'ayrac') ed.append(h('span.small.muted', 'Yatay ayraç çizgisi'));
+      else if (b.t === 'bosluk') ed.append(h('label.row.small', 'Yükseklik (mm) ', h('input.inp', { type: 'number', value: b.yukseklik || 10, style: { width: '80px' }, on: { input: e => { b.yukseklik = +e.target.value; changed(); } } })));
       else {
-        ed.append(h(b.t === 'baslik' ? 'input.inp' : 'textarea.inp', { value: b.text || '', rows: b.t === 'anlatim' ? 5 : 3, on: { input: e => { b.text = e.target.value; changed(); } } }));
-        if (b.t === 'ornek' || b.t === 'alistirma') ed.append(h('textarea.inp', { rows: 2, value: b.cevap || '', placeholder: b.t === 'ornek' ? 'Çözüm (öğrenci sürümünde de görünür)' : 'Cevap (yalnız öğretmen sürümünde)', on: { input: e => { b.cevap = e.target.value; changed(); } } }));
-        if (b.t !== 'baslik') {
+        if (b.t !== 'gorsel') ed.append(h(b.t === 'baslik' || b.t === 'arabaslik' ? 'input.inp' : 'textarea.inp', { value: b.text || '', rows: b.t === 'paragraf' || b.t === 'anlatim' ? 5 : 3, placeholder: 'Metin. **kalın**, ==vurgu==, !!uyarı!!, x^2, H_2O, $\\frac{a}{b}$, satır başında “- ” madde', on: { input: e => { b.text = e.target.value; changed(); } } }));
+        if (b.t === 'ornek' || b.t === 'alistirma') {
+          ed.append(h('textarea.inp', { rows: 2, value: b.cevap || '', placeholder: b.t === 'ornek' ? 'Çözüm (öğrenci sürümünde de görünür)' : 'Cevap / çözüm (öğretmen sürümünde)', on: { input: e => { b.cevap = e.target.value; changed(); } } }));
+          ed.append(h('div.row.small', 'Doğru şık: ', h('div.seg', ['', 'A', 'B', 'C', 'D', 'E'].map(L => h('button' + ((b.harf || '') === L ? '.on' : ''), { type: 'button', on: { click: () => { b.harf = L; drawContent(); changed(); } } }, L || '—')))));
+        }
+        if (!['baslik', 'arabaslik'].includes(b.t)) {
           const inp = h('input', { type: 'file', accept: 'image/*', hidden: true, on: { change: async e => { const f = e.target.files[0]; if (!f) return; b.image = await shrinkImage(await readFileAsDataURL(f)); drawContent(); changed(); } } });
-          ed.append(h('div.row', b.image ? h('img', { src: b.image, style: { maxHeight: '60px', borderRadius: '6px' } }) : null,
-            h('button.btn.btn-sm', { on: { click: () => inp.click() } }, b.image ? 'Görseli değiştir' : '🖼 Görsel'),
+          ed.append(h('div.row', b.image ? h('img', { src: b.image, style: { maxHeight: '54px', borderRadius: '6px' } }) : null,
+            h('button.btn.btn-sm', { on: { click: () => inp.click() } }, b.image ? 'Görseli değiştir' : '+ Görsel'),
+            b.image ? h('div.seg', [['left', '⇤'], ['center', '↔'], ['right', '⇥']].map(([v, l]) => h('button' + ((b.align || 'center') === v ? '.on' : ''), { type: 'button', on: { click: () => { b.align = v; drawContent(); changed(); } } }, l))) : null,
+            b.image ? h('div.seg', [30, 50, 70, 100].map(w => h('button' + ((b.imgW || 100) === w ? '.on' : ''), { type: 'button', on: { click: () => { b.imgW = w; drawContent(); changed(); } } }, '%' + w))) : null,
             b.image ? h('button.btn.btn-sm.btn-ghost', { on: { click: () => { delete b.image; drawContent(); changed(); } } }, 'Kaldır') : null, inp));
         }
       }
       list.append(ed);
     });
-    content.append(list);
-    content.append(h('div.row', { style: { marginTop: '10px', gap: '6px' } }, Object.entries(FOY_TYPES).map(([t, l]) => h('button.btn.btn-sm', { on: { click: async () => {
-      if (t === 'soru') { const ids = await pickQuestions({}); if (!ids?.length) return; await reloadQ(); ids.forEach(qid => blocks.push({ id: uid(), t: 'soru', qid })); }
-      else blocks.push({ id: uid(), t, text: '' });
-      drawContent(); changed();
-    } } }, '+ ' + l))));
+    content.append(list, h('div', { style: { marginTop: '10px' } }, h('div.small.muted', 'Blok ekle — sayfanın sonuna'), addMenu(blocks.length)));
+  }
+  function bulkPaste() {
+    const ta = h('textarea.inp', { rows: 14, placeholder: '# Konu başlığı\n## Ara başlık\nParagraf metni…\n\nNOT: …\nDİKKAT: …\nKURAL: …\nTANIM: …\nPÜF: …\nÖrnek: soru metni\nÇözüm: …\nSıra Sizde: …\n---' });
+    let m;
+    m = modal('Notları yapıştır — otomatik bloklara böl', h('div', h('p.small.muted', 'Hazır notlarınızı yapıştırın. Satır başındaki anahtar kelimelere göre bloklara ayrılır; boş satırla ayrılan metinler paragraf olur.'), ta),
+      { wide: true, actions: [h('button.btn.btn-primary', { on: { click: () => { const bl = parseNotes(ta.value); doc.blocks.push(...bl); m.close(); drawContent(); changed(); toast(bl.length + ' blok eklendi'); } } }, 'Bloklara böl')] });
   }
 
-  // ---- Eylemler ----
+  // ---------- Ayar paneli ----------
+  const sec = (title, open, ...kids) => { const d = h('details.card', { open, style: { padding: '12px 16px' } }, h('summary', { style: { cursor: 'pointer', fontWeight: 800, fontSize: '.8rem', letterSpacing: '.06em', color: 'var(--orange)', textTransform: 'uppercase' } }, title), h('div', { style: { display: 'grid', gap: '10px', marginTop: '10px' } }, kids)); return d; };
+  const chk = (label, get, set) => h('label.check', h('input', { type: 'checkbox', checked: !!get(), on: { change: e => { set(e.target.checked); changed(); } } }), label);
+  const txt = (label, obj, key, ph, hint) => h('label.fld', label, h('input.inp', { value: obj[key] || '', placeholder: ph || '', on: { input: e => { obj[key] = e.target.value; changed(); } } }), hint ? h('span.small.muted', { style: { fontWeight: 400 } }, hint) : null);
+  const sel = (label, obj, key, opts, after) => h('label.fld', label, h('select.inp', { value: obj[key] ?? '', on: { change: e => { obj[key] = e.target.value; changed(); after?.(); } } }, Object.entries(opts).map(([v, l]) => h('option', { value: v }, typeof l === 'string' ? l : l.ad))));
+  const range = (label, obj, key, min, max, unit) => { const out = h('b', (obj[key] ?? min) + unit); return h('label.fld', h('span', label, ': ', out), h('input', { type: 'range', min, max, value: obj[key] ?? min, on: { input: e => { obj[key] = +e.target.value; out.textContent = e.target.value + unit; changed(); } } })); };
+  const segPick = (values, cur, onPick) => { const s = h('div.seg', values.map(([v, l]) => h('button' + (v === cur ? '.on' : ''), { type: 'button', on: { click: e => { [...s.children].forEach(b => b.classList.toggle('on', b === e.target)); onPick(v); } } }, l))); return s; };
+
+  function drawSettings() {
+    settings.innerHTML = '';
+    const a = A(); a.ogrenci ||= {};
+    const k = doc.kind;
+    settings.append(
+      sec('Önce bunlar', true,
+        h('label.fld', 'Konu / başlık', h('input.inp', { value: doc.title, on: { input: e => { doc.title = e.target.value; changed(); } } }), h('span.small.muted', { style: { fontWeight: 400 } }, 'Her sayfanın üstündeki künyede basılır.')),
+        h('div.form-grid',
+          h('label.fld', 'Sınıf', h('select.inp', { value: doc.meta.sinif || '', on: { change: e => { doc.meta.sinif = e.target.value; changed(); } } }, h('option', { value: '' }, '—'), SINIFLAR.map(s => h('option', { value: s }, s)))),
+          txt('Ders / alan', doc.meta, 'ders', 'Kimya'),
+          k !== 'deneme' ? txt('Konu', doc.meta, 'konu', '') : null,
+          k !== 'foy' && k !== 'banka' ? txt('Süre', doc.meta, 'sure', '40 dk') : null),
+        h('div.row', h('b.small', 'Sütun'), segPick([[1, '1 Sütun'], [2, '2 Sütun']], a.cols || 2, v => { a.cols = v; drawContent(); changed(); }))),
+      sec('Kâğıt ve boşluklar', false,
+        sel('Kâğıt boyutu', a, 'kagit', { A4: 'A4 (210 × 297 mm)', A5: 'A5 (148 × 210 mm)', A3: 'A3 (297 × 420 mm)', Letter: 'Letter (216 × 279 mm)', Legal: 'Legal (216 × 356 mm)' }),
+        k !== 'foy' ? range('Sorular arası boşluk', a, 'bosluk', 2, 60, ' mm') : null,
+        range('Yazı ölçeği', a, 'olcek', 70, 140, '%'),
+        k !== 'foy' ? chk('Soru başına puan etiketi — “(5 Puan)”', () => a.puanEtiketi, v => a.puanEtiketi = v) : null,
+        k !== 'foy' ? chk('Süreç bileşeni etiketini göster (ör. “Bağlam”)', () => a.surecGoster, v => a.surecGoster = v) : null),
+      k !== 'foy' ? sec('Başlık bilgileri', false,
+        txt('Okul / kurum adı', a, 'okul', brand.kurum || 'Ör. Atatürk Ortaokulu', 'Boşsa marka kimliğindeki ad basılır.'),
+        txt('Sıra no / test adı', a, 'testAdi', '3  ·  Kavrama Testi', `Sayı yazarsanız “3. ${KINDS[k].ek}” olur.`),
+        txt('Ders öğretmeni', a, 'ogretmen', brand.ogretmen || ''),
+        k === 'yazili' || k === 'deneme' ? h('div.form-grid', txt('Eğitim-öğretim yılı', a, 'yil', '2026-2027'), txt('Dönem', a, 'donem', '1. Dönem'), txt('Tarih', a, 'tarih', '')) : null,
+        k === 'yazili' || k === 'test' || k === 'deneme' ? h('label.fld', 'Sınav yönergesi', h('textarea.inp', { rows: 2, value: a.yonerge || '', on: { input: e => { a.yonerge = e.target.value; changed(); } } }), segPick([['ust', 'Başlığın altında'], ['alt', 'Sayfanın sonunda']], a.yonergeYer || 'ust', v => { a.yonergeYer = v; changed(); })) : null,
+        k === 'yazili' ? h('label.fld', 'Kâğıt sonu imzaları', ...[0, 1, 2].map(i => h('div.row', { style: { flexWrap: 'nowrap' } }, h('input.inp', { placeholder: 'Ad Soyad', value: a.imzalar?.[i]?.ad || '', on: { input: e => { (a.imzalar ||= [])[i] = { ...(a.imzalar[i] || {}), ad: e.target.value }; changed(); } } }), h('input.inp', { placeholder: 'Unvan (Ders Öğretmeni, Müdür…)', value: a.imzalar?.[i]?.unvan || '', on: { input: e => { (a.imzalar ||= [])[i] = { ...(a.imzalar[i] || {}), unvan: e.target.value }; changed(); } } }))), h('span.small.muted', { style: { fontWeight: 400 } }, 'Son soru sayfasının altına yan yana basılır; boş satır basılmaz.')) : null) : null,
+      k !== 'foy' ? sec('Öğrenci bilgi alanları', false,
+        chk('Adı Soyadı satırı', () => a.ogrenci.ad, v => a.ogrenci.ad = v), chk('Sınıf / Şube', () => a.ogrenci.sinif, v => a.ogrenci.sinif = v), chk('Okul numarası', () => a.ogrenci.no, v => a.ogrenci.no = v),
+        chk('Puan kutusu (ALDIĞI NOT)', () => a.ogrenci.puan, v => a.ogrenci.puan = v), chk('Veli imza alanı', () => a.ogrenci.veli, v => a.ogrenci.veli = v)) : null,
+      k === 'yazili' ? sec('Cevap alanı', false,
+        h('div.seg', { style: { flexWrap: 'wrap' } }, [['bos', 'Boş'], ['cerceve', 'Çerçeve'], ['cozum', 'ÇÖZÜM kutusu'], ['cizgili', 'Çizgili'], ['kareli', 'Kareli']].map(([v, l]) => h('button' + ((a.cevapAlani || 'cerceve') === v ? '.on' : ''), { type: 'button', on: { click: () => { a.cevapAlani = v; drawSettings(); changed(); } } }, l))),
+        range('Her sorunun altına', a, 'cevapYukseklik', 10, 120, ' mm')) : null,
+      k === 'foy' ? sec('Föy bilgisi', false,
+        h('label.fld', 'Örnek / Sıra Sizde cevapları', h('select.inp', { value: a.foyCevap || 'yok', on: { change: e => { a.foyCevap = e.target.value; changed(); } } }, h('option', { value: 'yok' }, 'Basılmasın'), h('option', { value: 'satir' }, 'Her sayfanın altında — tek satır'), h('option', { value: 'kutu' }, 'Her sayfanın altında — kutu içinde')), h('span.small.muted', { style: { fontWeight: 400 } }, 'Doğru şık bloktan seçilir; “Örnek 1: B” biçiminde basılır.')),
+        chk('Örnek çözümlerini öğrenci sürümünde göster', () => a.cozumGoster !== false, v => a.cozumGoster = v),
+        chk('Öne kapak ekle', () => a.kapak, v => a.kapak = v),
+        h('label.fld', 'Karekod bağlantısı (ör. konu videosu)', h('input.inp', { value: a.karekod || '', placeholder: 'https://…', on: { change: e => { a.karekod = e.target.value.trim(); changed(); } } }), h('span.small.muted', { style: { fontWeight: 400 } }, 'İlk sayfanın başlığına basılır; öğrenci okutup videoyu açar.'))) : null,
+      k !== 'foy' ? sec('Çıktı seçenekleri', false,
+        k !== 'yazili' ? chk('Sona cevap anahtarı ekle', () => a.anahtar, v => a.anahtar = v) : chk('Sona cevap anahtarı ekle', () => a.anahtar, v => a.anahtar = v),
+        chk('Sona öğrenme çıktıları ekle', () => a.ogrenmeCiktilari, v => a.ogrenmeCiktilari = v),
+        sel('Çözümler', a, 'cozumler', { yok: 'Gösterme', alt: 'Her sorunun altında', sonda: 'Sonda, ayrı sayfalarda' }),
+        k === 'test' || k === 'banka' ? sel('Cevap anahtarı nereye basılsın?', a, 'anahtarYeri', { ayri: 'Ayrı sayfada', satir: 'Her sayfanın altında — tek satır', kutu: 'Her sayfanın altında — kutu içinde' }) : h('span.small.muted', 'Anahtar her zaman ayrı sayfaya basılır; öğrencinin sayfasında görünmez.'),
+        k === 'test' || k === 'deneme' ? chk('Optik form ekle', () => a.optik, v => a.optik = v) : null,
+        k === 'test' || k === 'deneme' || k === 'yazili' ? h('div.row', h('b.small', 'Kitapçık'), segPick([['A', 'A'], ['B', 'B'], ['AB', 'A + B']], (a.kitapciklar || ['A']).join(''), v => { a.kitapciklar = v.split(''); changed(); }), h('span.small.muted', 'B: aynı sorular, karışık sıra ve şıklar')) : null,
+        chk(k === 'deneme' ? 'Öne kapak sayfası — ders / soru / süre tablosu' : k === 'banka' ? 'Öne kapak — ders, sınıf, konu listesi' : 'Öne kapak ekle', () => a.kapak, v => a.kapak = v),
+        k === 'banka' ? chk('İçindekiler sayfası ekle', () => a.icindekiler, v => a.icindekiler = v) : null,
+        k === 'banka' ? chk('Konu başlıklarıyla böl', () => a.konuBaslik !== false, v => a.konuBaslik = v) : null,
+        k === 'banka' ? chk('Her bölüm 1’den numaralansın', () => a.bolumNumara, v => a.bolumNumara = v) : null,
+        txt('Kaynak künyesi', a, 'kaynak', 'Boşsa soruların kaynağı yazılır', 'Cevap anahtarı sayfasına basılır.'),
+        h('label.fld', 'Karekod bağlantısı', h('input.inp', { value: a.karekod || '', placeholder: 'https://…', on: { change: e => { a.karekod = e.target.value.trim(); changed(); } } }), h('span.small.muted', { style: { fontWeight: 400 } }, 'Öğrencinin kâğıdında görünmez; yalnız cevap anahtarı sayfasına basılır.'))) : null,
+      sec('Bu belgenin görünümü', false,
+        h('p.small.muted', { style: { margin: 0 } }, 'Yalnız bu belgeye uygulanır; boş bırakılanlar marka kimliğinden gelir.'),
+        ...[['baslik', 'Başlık tasarımı', HEADERS], ['sablon', 'Sayfa şablonu', TEMPLATES], ['soruNo', 'Soru numarası', Q_NUMS], ['sayfaNo', 'Sayfa numarası', PAGE_NUMS], ['govdeFont', 'Gövde yazı tipi', BODY_FONTS], ['baslikFont', 'Başlık yazı tipi', TITLE_FONTS], ['altBilgi', 'Alt bilgi', FOOTERS], ['boyut', 'Yazı boyutu', SIZES]].map(([key, label, opts]) => {
+          doc.gorunum ||= {};
+          return h('label.fld', label, h('select.inp', { value: doc.gorunum[key] || '', on: { change: e => { if (e.target.value) doc.gorunum[key] = e.target.value; else delete doc.gorunum[key]; changed(); } } }, h('option', { value: '' }, '— Marka kimliğinden —'), Object.entries(opts).map(([v, l]) => h('option', { value: v }, typeof l === 'string' ? l : l.ad))));
+        }),
+        h('div.row', h('button.btn.btn-sm', { on: { click: () => { doc.gorunum = {}; drawSettings(); changed(); } } }, 'Görünümü sıfırla'), h('a.btn.btn-sm', { href: '#/marka' }, 'Marka kimliğim →'))),
+      sec('Sayfaya damga', false,
+        (brand.damgalar || []).length ? h('div.row', brand.damgalar.map(d => h('button', { title: 'Seç, sonra sayfada bir yere tıkla', style: { border: '1px solid var(--line)', borderRadius: '8px', background: '#fff', padding: '4px', cursor: 'pointer' }, on: { click: () => { stampMode = d.id; area.style.cursor = 'crosshair'; toast('Sayfada damganın yerine tıklayın'); } } }, h('img', { src: d.img, style: { width: '48px', height: '48px', objectFit: 'contain' } })))) : h('p.small.muted', { style: { margin: 0 } }, 'Henüz damga yok. Marka Kimliği → Damgalarım’dan oluşturun.'),
+        h('span.small.muted', 'Basılan damgayı sürükleyerek taşıyın; çift tıklayınca silinir.')),
+      sec('Şablonlarım', false, ...templatesUI()));
+  }
+
+  function templatesUI() {
+    const list = h('div', { style: { display: 'grid', gap: '6px' } });
+    const name = h('input.inp', { placeholder: 'Şablon adı — örn. 9-A Yaprak Test' });
+    const draw = async () => {
+      const all = (await db.kvGet('sablonlar')) || [];
+      list.innerHTML = '';
+      all.filter(s => s.kind === doc.kind).forEach(s => list.append(h('div.item-row', h('span.txt', s.ad), h('button.btn.btn-sm', { on: { click: () => { const keep = { okul: 1, kagit: 1, bosluk: 1, olcek: 1, puanEtiketi: 1, ogrenci: 1, anahtar: 1, ogrenmeCiktilari: 1, cozumler: 1, anahtarYeri: 1, optik: 1, kapak: 1, icindekiler: 1, yonergeYer: 1, cevapAlani: 1, cevapYukseklik: 1, kitapciklar: 1, cols: 1, imzalar: 1, ogretmen: 1, yil: 1, donem: 1, yonerge: 1 }; for (const k in s.ayar) if (keep[k]) doc.ayar[k] = structuredClone(s.ayar[k]); if (s.gorunum) doc.gorunum = { ...s.gorunum }; drawAll(); changed(); toast('Şablon uygulandı'); } } }, 'Uygula'), h('button.icon-btn', { on: { click: async () => { await db.kvSet('sablonlar', all.filter(x => x !== s)); draw(); } } }, '✕'))));
+    };
+    draw();
+    return [h('p.small.muted', { style: { margin: 0 } }, 'Kâğıt, düzen, okul adı gibi tekrar eden ayarları kaydedin; sonraki belgede tek tıkla uygulayın. Başlık, tarih ve ders şablona dahil edilmez.'),
+      h('div.row', { style: { flexWrap: 'nowrap' } }, name, h('button.btn.btn-sm.btn-primary', { on: { click: async () => { if (!name.value.trim()) { toast('Şablona bir ad verin'); return; } const all = (await db.kvGet('sablonlar')) || []; const ay = structuredClone(doc.ayar); delete ay.testAdi; delete ay.tarih; all.push({ id: uid(), ad: name.value.trim(), kind: doc.kind, ayar: ay, gorunum: doc.gorunum || {} }); await db.kvSet('sablonlar', all); name.value = ''; draw(); toast('Şablon kaydedildi'); } } }, 'Kaydet')), list];
+  }
+
+  // ---------- Eylemler ----------
   const printDoc = async () => {
     const root = $('#printRoot');
-    clearTimeout(rt);
-    await rendering;
-    await renderDoc(pages, doc, qmap, brand, { teacher });
-    fitScale();
-    // Ne görüyorsanız o basılır: önizlemede sayfalanmış kâğıtların aynısı
+    clearTimeout(rt); await rendering;
+    await renderDoc(pages, doc, qmap, brand, { teacher }); fitScale(); bindStamps();
     root.innerHTML = '';
     pages.querySelectorAll('.sheet').forEach(s => root.append(s.cloneNode(true)));
+    const [w, hh] = PAPERS[A().kagit] || PAPERS.A4;
+    let ps = document.getElementById('pageSize'); if (!ps) { ps = h('style#pageSize'); document.head.append(ps); }
+    ps.textContent = `@page{size:${w}mm ${hh}mm;margin:0}`;
     const done = () => { root.innerHTML = ''; window.removeEventListener('afterprint', done); };
     window.addEventListener('afterprint', done);
-    setTimeout(() => window.print(), 50);
+    setTimeout(() => window.print(), 80);
   };
-  const actions = h('div.card', h('div', { style: { display: 'grid', gap: '8px' } },
-    h('button.btn.btn-primary', { on: { click: printDoc } }, '🖨 Yazdır / PDF olarak kaydet'),
-    h('p.small.muted', { style: { margin: 0 } }, 'Yazdırma penceresinde hedef olarak “PDF olarak kaydet” seçin; kenar boşluğu “Yok”, arka plan grafikleri açık olsun.'),
-    ['test', 'deneme'].includes(doc.kind) ? h('button.btn', { on: { click: async () => { await db.put('documents', doc); const ex = await createExamFromDoc(doc, qmap); if (ex) location.hash = '#/sinav/' + ex.id; } } }, '📱 Bu testle sınav yap') : null,
-    h('button.btn.btn-danger.btn-sm', { on: { click: async () => { if (!await confirmBox('Bu belge silinsin mi? Sorular havuzda kalır.', 'Sil')) return; await db.del('documents', doc.id); location.hash = '#/belgeler'; } } }, 'Belgeyi sil')));
+  const exportFile = () => {
+    const ids = new Set();
+    (doc.items || []).forEach(i => i.qid && ids.add(i.qid)); (doc.sections || []).forEach(s => s.qids.forEach(x => ids.add(x))); (doc.blocks || []).forEach(b => b.qid && ids.add(b.qid));
+    const data = { app: 'soruevim', tip: 'belge', version: 1, belge: doc, questions: [...ids].map(i => qmap[i]).filter(Boolean) };
+    download(new Blob([JSON.stringify(data)], { type: 'application/json' }), (doc.title || 'belge').replace(/[\\/:*?"<>|]/g, '') + '.soruevim');
+    toast('Belge dosyaya kaydedildi');
+  };
+  const teacherBtn = h('button.btn.btn-sm', { title: 'Çözümleri göster/gizle (öğretmen sürümü)', on: { click: () => { teacher = !teacher; teacherBtn.classList.toggle('btn-accent', teacher); teacherBtn.textContent = teacher ? '👁 Öğretmen' : '👁 Öğrenci'; refresh(); } } }, '👁 Öğrenci');
+  const toolbar = h('div.row.editor-toolbar', { style: { marginBottom: '12px', position: 'sticky', top: '58px', zIndex: 10, background: 'var(--cream)', padding: '6px 0' } },
+    h('a.btn.btn-sm.btn-ghost', { href: '#/', title: 'Başlangıç ekranına dön' }, '⌂'),
+    h('b', { style: { fontSize: '1.05rem' } }, KINDS[doc.kind].ad), undoBtn, redoBtn,
+    h('button.btn.btn-sm', { title: 'PDF’ten kırp — belgenin sonuna eklenir', on: { click: () => cropTool(async qs => { await reloadQ(); if (doc.kind === 'foy') doc.blocks.push(...qs.map(q => ({ id: uid(), t: 'soru', qid: q.id }))); else if (doc.kind === 'deneme') doc.sections.at(-1).qids.push(...qs.map(q => q.id)); else doc.items.push(...qs.map(q => ({ qid: q.id, puan: 0 }))); drawContent(); changed(); }) } }, '✂'),
+    h('button.btn.btn-sm', { title: 'Belgeyi temizle', on: { click: async () => { if (!await confirmBox('Bütün içerik silinsin mi? Sorular havuzda kalır.', 'Temizle')) return; if (doc.kind === 'foy') doc.blocks = []; else if (doc.kind === 'deneme') doc.sections.forEach(s => s.qids = []); else doc.items = []; drawContent(); changed(); } } }, '🗑'),
+    teacherBtn,
+    h('span.spacer'), pageInfo,
+    ['test', 'deneme', 'yazili'].includes(doc.kind) ? h('button.btn.btn-sm', { on: { click: async () => { await db.put('documents', doc); const ex = await createExamFromDoc(doc, qmap); if (ex) location.hash = '#/sinav/' + ex.id; } } }, '📱 Sınav') : null,
+    h('button.btn.btn-sm', { title: 'Belgeyi dosyaya kaydet (.soruevim)', on: { click: exportFile } }, '💾 Kaydet'),
+    h('button.btn.btn-sm', { title: 'Z-Kitap, PNG, Word', on: { click: async () => { await db.put('documents', doc); (await import('./board.js')).exportMenu(doc, { teacher, save: () => db.put('documents', doc) }); } } }, '⬇ İndir'),
+    h('button.btn.btn-sm.btn-primary', { on: { click: printDoc } }, '🖨 Yazdır / PDF'));
 
-  app.append(
-    h('div.row', { style: { marginBottom: '14px' } }, h('a.btn.btn-sm.btn-ghost', { href: '#/belgeler' }, '← Belgelerim'), h('h1', { style: { margin: 0, fontSize: '1.4rem' } }, KINDS[doc.kind].ad), h('span.spacer'), pageInfo),
-    h('div.editor', h('div.editor-side', general, content, optionsCard, actions), area));
-  drawContent();
-  refresh();
-  if (isNew) save();
-  return () => { window.removeEventListener('resize', fitScale); };
+  app.append(toolbar, h('div.editor', h('div.editor-side', content, settings,
+    h('div.card', h('p.small.muted', { style: { margin: 0 } }, 'Yazdırma penceresinde “PDF olarak kaydet” seçin; kenar boşluğu “Yok”, arka plan grafikleri açık olsun.'),
+      h('button.btn.btn-danger.btn-sm', { style: { marginTop: '8px' }, on: { click: async () => { if (!await confirmBox('Bu belge silinsin mi? Sorular havuzda kalır.', 'Sil')) return; await db.del('documents', doc.id); location.hash = '#/belgeler'; } } }, 'Belgeyi sil'))), area));
+  updUndo();
+  drawAll();
+  db.kvSet('sonBelge', doc.id);
+  return () => { window.removeEventListener('resize', fitScale); document.removeEventListener('keydown', onKey); };
 }
 
-function seg(values, cur, onPick) {
-  const s = h('div.seg', values.map(v => h('button' + (v === cur ? '.on' : ''), { type: 'button', on: { click: e => { [...s.children].forEach(b => b.classList.toggle('on', b === e.target)); onPick(v); } } }, v)));
-  return s;
+// ---------- Notları bloklara böl ----------
+export function parseNotes(text) {
+  const blocks = []; const paras = [];
+  const flush = () => { const t = paras.join('\n').trim(); if (t) blocks.push({ id: uid(), t: 'paragraf', text: t }); paras.length = 0; };
+  const KEYS = [[/^#\s+(.*)/, 'baslik'], [/^##\s+(.*)/, 'arabaslik'], [/^(?:NOT|Not)\s*[:：]\s*(.*)/, 'not'], [/^(?:DİKKAT|Dikkat)\s*[:：]\s*(.*)/, 'dikkat'], [/^(?:KURAL|Kural)\s*[:：]\s*(.*)/, 'kural'], [/^(?:TANIM|Tanım)\s*[:：]\s*(.*)/, 'tanim'], [/^(?:PÜF(?: NOKTASI)?|Püf(?: noktası)?)\s*[:：]\s*(.*)/, 'puf'], [/^(?:FORMÜL|Formül)\s*[:：]\s*(.*)/, 'formul'], [/^(?:Örnek|ÖRNEK)(?:\s*\d+)?\s*[:：.]\s*(.*)/, 'ornek'], [/^(?:Sıra Sizde|SIRA SİZDE)(?:\s*\d+)?\s*[:：.]\s*(.*)/, 'alistirma']];
+  let last = null;
+  for (const raw of text.split('\n')) {
+    const ln = raw.trimEnd();
+    if (/^\s*---+\s*$/.test(ln)) { flush(); blocks.push({ id: uid(), t: 'ayrac' }); last = null; continue; }
+    const cz = ln.match(/^(?:Çözüm|ÇÖZÜM|Cevap)\s*[:：]\s*(.*)/);
+    if (cz && last && (last.t === 'ornek' || last.t === 'alistirma')) { last.cevap = (last.cevap ? last.cevap + '\n' : '') + cz[1]; continue; }
+    let hit = null;
+    for (const [re, t] of KEYS) { const m = ln.match(re); if (m) { hit = [t, m[1]]; break; } }
+    if (hit) { flush(); last = { id: uid(), t: hit[0], text: hit[1] }; blocks.push(last); continue; }
+    if (!ln.trim()) { flush(); last = null; continue; }
+    if (last && last.t !== 'baslik' && last.t !== 'arabaslik') { last.text += '\n' + ln; continue; }
+    paras.push(ln);
+  }
+  flush();
+  return blocks;
 }
-function check(label, val, on) {
-  return h('label.check', h('input', { type: 'checkbox', checked: val, on: { change: e => on(e.target.checked) } }), label);
+
+function sampleFoy() {
+  return parseNotes(`# Mol Kavramı
+Maddelerin tanecik sayısını ifade etmek için **mol** birimi kullanılır. 1 mol, Avogadro sayısı kadar (N_{A} = 6,02·10^{23}) tanecik içerir.
+
+## Mol – Kütle İlişkisi
+TANIM: Bir maddenin 1 molünün gram cinsinden kütlesine ==mol kütlesi== denir.
+KURAL: $n = \\dfrac{m}{M_A}$
+- n: mol sayısı
+- m: kütle (g)
+- M_{A}: mol kütlesi (g/mol)
+DİKKAT: Mol kütlesi ile atom kütlesi !!aynı şey değildir!!; birimleri farklıdır.
+Örnek: 8 g CH_4 kaç moldür? (C: 12, H: 1)
+Çözüm: M_{A} = 12 + 4·1 = 16 g/mol → n = 8 / 16 = 0,5 mol
+PÜF: Gazlarda NŞA’da 1 mol = 22,4 L olduğunu hatırlayın.
+Sıra Sizde: 0,2 mol H_2O kaç gramdır? (H: 1, O: 16)
+Cevap: 3,6 g
+---
+NOT: Avogadro sayısı yalnızca atomlar için değil, iyon ve moleküller için de geçerlidir.`);
 }

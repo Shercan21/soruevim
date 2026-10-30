@@ -1,12 +1,12 @@
 /* Soru Evim service worker — uygulama kabuğu önbellekte, veriler IndexedDB'de. */
-const VERSION = 'v1.0.1';
+const VERSION = 'v2.1.0';
 const SHELL = `soruevim-shell-${VERSION}`;
 const RUNTIME = 'soruevim-runtime';
 const SHELL_FILES = [
   './', './index.html', './manifest.webmanifest',
-  './css/app.css',
-  './js/app.js', './js/db.js', './js/util.js', './js/render.js',
-  './js/views/home.js', './js/views/brand.js', './js/views/pool.js', './js/views/editor.js', './js/views/exams.js',
+  './css/app.css', './css/paper.css', './js/design.js',
+  './js/app.js', './js/meb.js', './js/views/optik.js', './js/db.js', './js/util.js', './js/render.js',
+  './js/views/home.js', './js/views/brand.js', './js/views/pool.js', './js/views/editor.js', './js/views/exams.js', './js/views/imgtools.js', './js/views/board.js', './js/views/online.js',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png',
 ];
 // PDF okuyucu (ilk açılışta indirilir, sonra çevrimdışı çalışır)
@@ -67,14 +67,14 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // CDN (pdf.js): önbellek önce
-  if (CDN_FILES.some(u => req.url.startsWith(u.split('/build/')[0]))) {
+  // CDN (pdf.js, KaTeX, QR) ve yazı tipleri: önbellek önce
+  if (/^https:\/\/(cdn\.jsdelivr\.net|fonts\.googleapis\.com|fonts\.gstatic\.com)\//.test(req.url)) {
     event.respondWith((async () => {
       const cache = await caches.open(RUNTIME);
       const hit = await cache.match(req);
       if (hit) return hit;
       const r = await fetch(req);
-      if (r.ok) cache.put(req, r.clone());
+      if (r.ok || r.type === 'opaque') cache.put(req, r.clone());
       return r;
     })());
   }
