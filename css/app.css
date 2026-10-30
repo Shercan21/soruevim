@@ -180,3 +180,4 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
 @keyframes zkl{from{transform:rotateY(14deg) translateX(-30px);opacity:.4}to{transform:none;opacity:1}}
 
 body.student-mode .topnav,body.student-mode .topbar .btn,body.student-mode .topbar .icon-btn{display:none!important}
+.grid.grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}@media(max-width:640px){.grid.grid-3{grid-template-columns:1fr}}
