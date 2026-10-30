@@ -1,0 +1,27 @@
+{
+  "name": "Soru Evim — Kendi Yayıneviniz Olun",
+  "short_name": "Soru Evim",
+  "description": "Konu föyü, yaprak test, yazılı, deneme ve soru bankası — kendi sorularınızla, kendi logonuzla.",
+  "id": "./",
+  "start_url": "./#/",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
+  "background_color": "#f6f1e7",
+  "theme_color": "#1B4B7F",
+  "lang": "tr",
+  "dir": "ltr",
+  "categories": ["education", "productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ],
+  "shortcuts": [
+    { "name": "Yaprak Test", "url": "./#/yeni/test", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Soru Havuzu", "url": "./#/havuz", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Sınavlarım", "url": "./#/sinavlar", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
