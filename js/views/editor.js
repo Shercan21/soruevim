@@ -66,7 +66,18 @@ export async function introView(app, kind, opts = {}) {
 
 
 // ---------- Senaryodan yazılı kurma (MEB konu-soru dağılım tabloları) ----------
-async function senaryoCard() {
+function senaryoUygula(d, st, sc) {
+  const [donem, sira] = st.sinav.split(/(?<=Dönem) /);
+  d.title = `${st.sinif} ${st.ders} Dersi ${st.sinav}`;
+  d.meta.sinif = st.sinif; d.meta.ders = st.ders;
+  Object.assign(d.ayar, { donem, testAdi: sira, yil: SENARYO_YILI, ogrenmeCiktilari: true, puanEtiketi: true });
+  d.senaryo = { sinav: st.sinav, ad: sc.ad };
+  const qi = d.items; const base = Math.floor(100 / qi.length), extra = 100 - base * qi.length;
+  qi.forEach((it, i) => { it.puan = base + (i >= qi.length - extra ? 1 : 0); });
+  return d;
+}
+
+async function senaryoCard(onKur) {
   const all = await db.all('questions');
   const last = (await db.kvGet('senaryoSecim')) || {};
   const st = { sinif: last.sinif || '9. Sınıf', ders: last.ders || 'Kimya', sinav: last.sinav || '', sen: 0 };
@@ -103,14 +114,9 @@ async function senaryoCard() {
         await db.put('questions', q); qids.push(q.id);
       }
     }
-    const d = newDoc('yazili', { qids });
-    const [donem, sira] = st.sinav.split(/(?<=Dönem) /);
-    d.title = `${st.sinif} ${st.ders} Dersi ${st.sinav}`;
-    d.meta.sinif = st.sinif; d.meta.ders = st.ders;
-    Object.assign(d.ayar, { donem, testAdi: sira, yil: SENARYO_YILI, ogrenmeCiktilari: true, puanEtiketi: true });
-    d.senaryo = { sinav: st.sinav, ad: sc.ad };
-    const qi = d.items; const base = Math.floor(100 / qi.length), extra = 100 - base * qi.length;
-    qi.forEach((it, i) => { it.puan = base + (i >= qi.length - extra ? 1 : 0); });
+    const d = onKur ? null : newDoc('yazili', { qids });
+    if (onKur) return onKur(senaryoUygula({ items: qids.map(qid => ({ qid, puan: 0 })), meta: {}, ayar: {} }, st, sc));
+    senaryoUygula(d, st, sc);
     await db.put('documents', d); location.hash = '#/belge/' + d.id;
   };
   draw();
@@ -212,10 +218,21 @@ export async function editorView(app, { id }) {
     if (doc.kind === 'foy') drawFoy(); else if (doc.kind === 'deneme') drawDeneme(); else drawItems();
   }
 
+  async function senaryoAc() {
+    let m;
+    const card = await senaryoCard(async r => {
+      if (doc.items.length && !await confirmBox('Kâğıttaki sorular seçilen senaryonun sorularıyla değiştirilsin mi? Sorular havuzda kalır.', 'Değiştir')) return;
+      doc.items = r.items; doc.title = r.title; doc.senaryo = r.senaryo; Object.assign(doc.meta, r.meta); Object.assign(doc.ayar, r.ayar);
+      m.close(); await reloadQ(); drawAll(); changed(); toast('Kâğıt senaryoya göre kuruldu');
+    });
+    m = modal('Senaryodan yazılı kur', card, { wide: true });
+  }
+
   function drawItems() {
     const items = doc.items;
     const qItems = items.filter(i => i.type !== 'kok');
     const total = qItems.reduce((a, b) => a + (+b.puan || 0), 0);
+    if (doc.kind === 'yazili') content.append(h('button.btn.btn-accent', { style: { width: '100%', marginBottom: '12px' }, on: { click: senaryoAc } }, doc.senaryo ? `📋 Senaryo: ${doc.senaryo.sinav} · ${doc.senaryo.ad} — değiştir` : '📋 Senaryodan yazılı kur (sınıf · ders · senaryo)'));
     content.append(h('div.row', h('h3', { style: { margin: 0 } }, 'Kâğıt (' + qItems.length + ' soru)'), h('span.spacer'),
       h('button.btn.btn-sm.btn-primary', { on: { click: async () => { const ids = await pickQuestions({ exclude: qItems.map(i => i.qid), preset: filterForDoc() }); if (!ids?.length) return; await reloadQ(); ids.forEach(qid => items.push({ qid, puan: 0 })); if (doc.kind === 'yazili') equalize(); drawContent(); changed(); } } }, '+ Havuzdan'),
       h('button.btn.btn-sm', { on: { click: () => editQuestion(null, async q => { await reloadQ(); items.push({ qid: q.id, puan: 0 }); if (doc.kind === 'yazili') equalize(); drawContent(); changed(); }, { preset: { sinif: doc.meta.sinif, ders: doc.meta.ders, konu: doc.meta.konu } }) } }, '+ Yeni yaz'),
@@ -383,7 +400,7 @@ export async function editorView(app, { id }) {
         h('label.fld', 'Konu / başlık', h('input.inp', { value: doc.title, on: { input: e => { doc.title = e.target.value; changed(); } } }), h('span.small.muted', { style: { fontWeight: 400 } }, 'Her sayfanın üstündeki künyede basılır.')),
         h('div.form-grid',
           h('label.fld', 'Sınıf', h('select.inp', { value: doc.meta.sinif || '', on: { change: e => { doc.meta.sinif = e.target.value; changed(); } } }, h('option', { value: '' }, '—'), SINIFLAR.map(s => h('option', { value: s }, s)))),
-          txt('Ders / alan', doc.meta, 'ders', 'Kimya'),
+          h('label.fld', 'Ders / alan', h('input.inp', { value: doc.meta.ders || '', placeholder: 'Ders seçin ya da yazın', list: 'dersListE', on: { input: e => { doc.meta.ders = e.target.value; changed(); } } }), h('datalist#dersListE', DERSLER.map(x => h('option', { value: x })))),
           k !== 'deneme' ? txt('Konu', doc.meta, 'konu', '') : null,
           k !== 'foy' && k !== 'banka' ? txt('Süre', doc.meta, 'sure', '40 dk') : null),
         h('div.row', h('b.small', 'Sütun'), segPick([[1, '1 Sütun'], [2, '2 Sütun']], a.cols || 2, v => { a.cols = v; drawContent(); changed(); }))),
@@ -435,6 +452,7 @@ export async function editorView(app, { id }) {
         (brand.damgalar || []).length ? h('div.row', brand.damgalar.map(d => h('button', { title: 'Seç, sonra sayfada bir yere tıkla', style: { border: '1px solid var(--line)', borderRadius: '8px', background: '#fff', padding: '4px', cursor: 'pointer' }, on: { click: () => { stampMode = d.id; area.style.cursor = 'crosshair'; toast('Sayfada damganın yerine tıklayın'); } } }, h('img', { src: d.img, style: { width: '48px', height: '48px', objectFit: 'contain' } })))) : h('p.small.muted', { style: { margin: 0 } }, 'Henüz damga yok. Marka Kimliği → Damgalarım’dan oluşturun.'),
         h('span.small.muted', 'Basılan damgayı sürükleyerek taşıyın; çift tıklayınca silinir.')),
       sec('Şablonlarım', false, ...templatesUI()));
+    [...settings.childNodes].forEach(n => { if (n.nodeType === 3 && n.textContent === "null") n.remove(); });
   }
 
   function templatesUI() {
