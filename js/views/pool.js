@@ -36,29 +36,35 @@ export function qCard(q, { onClick, selected, actions, compact } = {}) {
 }
 
 // ---------- Filtre ----------
-export function filterBar(all, onChange, preset = {}) {
+export function filterBar(allSrc, onChange, preset = {}) {
+  const getAll = typeof allSrc === 'function' ? allSrc : () => allSrc;
   const st = { q: '', ders: '', sinif: '', zorluk: '', type: '', kazanim: '', konu: '', cevap: '', kaynak: '', ...preset };
-  const uniq = k => [...new Set(all.map(x => x[k]).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'tr', { numeric: true }));
+  const sortTr = arr => arr.sort((a, b) => String(a).localeCompare(String(b), 'tr', { numeric: true }));
   const selects = {};
-  const mk = (k, label, opts) => { const s = h('select.inp', { style: { width: 'auto', maxWidth: '220px' }, on: { change: e => { st[k] = e.target.value; if (k === 'sinif' || k === 'ders') refreshDeps(); onChange(st); } } }, h('option', { value: '' }, label), opts.map(([v, l]) => h('option', { value: v }, l))); s.value = st[k] || ''; selects[k] = s; return s; };
-  const sub = () => all.filter(x => (!st.sinif || x.sinif === st.sinif) && (!st.ders || x.ders === st.ders));
+  const fill = (s, label, opts, cur) => { s.innerHTML = ''; s.append(h('option', { value: '' }, label), ...opts.map(([v, l]) => h('option', { value: v }, l))); s.value = cur || ''; return s.value === (cur || ''); };
+  const mk = (k, label, opts) => { const s = h('select.inp', { style: { width: 'auto', maxWidth: '240px' }, on: { change: e => { st[k] = e.target.value; if (k === 'sinif' || k === 'ders' || k === 'konu') refreshDeps(); onChange(st); } } }); fill(s, label, opts, st[k]); selects[k] = s; return s; };
+  const sub = (useKonu) => getAll().filter(x => (!st.sinif || x.sinif === st.sinif) && (!st.ders || x.ders === st.ders) && (!useKonu || !st.konu || x.konu === st.konu));
+  const short = v => v.length > 56 ? v.slice(0, 56) + '…' : v;
   const refreshDeps = () => {
-    for (const [k, label] of [['konu', 'Tüm konular'], ['kazanim', 'Tüm kazanımlar']]) {
-      const s = selects[k]; const cur = st[k];
-      s.innerHTML = ''; s.append(h('option', { value: '' }, label), ...[...new Set(sub().map(x => x[k]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'tr', { numeric: true })).map(v => h('option', { value: v }, v.length > 48 ? v.slice(0, 48) + '…' : v)));
-      s.value = cur; if (s.value !== cur) st[k] = '';
-    }
+    const all = getAll();
+    const sin = sortTr([...new Set(all.map(x => x.sinif).filter(Boolean))]);
+    const der = sortTr([...new Set(all.filter(x => !st.sinif || x.sinif === st.sinif).map(x => x.ders).filter(Boolean))]);
+    if (!fill(selects.sinif, 'Tüm sınıflar', sin.map(x => [x, x]), st.sinif)) st.sinif = '';
+    if (!fill(selects.ders, 'Tüm dersler', der.map(x => [x, x]), st.ders)) st.ders = '';
+    const konular = sortTr([...new Set(sub().map(x => x.konu).filter(Boolean))]);
+    if (!fill(selects.konu, 'Tüm konular', konular.map(v => [v, short(v)]), st.konu)) st.konu = '';
+    const kaz = sortTr([...new Set(sub(true).map(x => x.kazanim).filter(Boolean))]);
+    if (!fill(selects.kazanim, 'Tüm kazanımlar', kaz.map(v => [v, short(v + (ciktiMetni(v) ? ' — ' + ciktiMetni(v) : ''))]), st.kazanim)) st.kazanim = '';
   };
   const bar = h('div.row', { style: { margin: '12px 0', gap: '6px' } },
     h('input.inp', { type: 'search', placeholder: 'Soru metni, konu ya da kazanım ara…', value: st.q, style: { flex: '1 1 220px', width: 'auto' }, on: { input: e => { st.q = e.target.value; onChange(st); } } }),
-    mk('sinif', 'Tüm sınıflar', uniq('sinif').map(x => [x, x])),
-    mk('ders', 'Tüm dersler', uniq('ders').map(x => [x, x])),
-    mk('konu', 'Tüm konular', []), mk('kazanim', 'Tüm kazanımlar', []),
+    mk('sinif', 'Tüm sınıflar', []), mk('ders', 'Tüm dersler', []), mk('konu', 'Tüm konular', []), mk('kazanim', 'Tüm kazanımlar', []),
     mk('zorluk', 'Her zorluk', Object.entries(LEVELS)),
     mk('type', 'Her tip', Object.entries(QTYPES)),
     mk('cevap', 'Cevap durumu', [['var', 'Cevaplı'], ['yok', 'Cevapsız']]),
     mk('kaynak', 'Her kaynak', [['hazir', 'Hazır bankalar'], ['benim', 'Kendi sorularım'], ['yazdigim', 'Yazdığım sorular'], ['kirpilan', 'Kırpılan sorular']]));
   refreshDeps();
+  bar.refresh = refreshDeps;
   return bar;
 }
 export function applyFilter(all, st) {
@@ -79,7 +85,9 @@ export async function poolView(app) {
   const selBar = h('div.card', { style: { position: 'sticky', top: '62px', zIndex: 8, padding: '10px 14px', display: 'none' } });
   let page = 0; const PER = 60;
   const rows = () => applyFilter(all, st);
+  let fbar, lastLen = -1;
   const render = () => {
+    if (fbar && all.length !== lastLen) { lastLen = all.length; fbar.refresh(); }
     const r = rows();
     count.textContent = r.length === all.length ? `${all.length} soru` : `${r.length} / ${all.length} soru`;
     list.innerHTML = '';
@@ -141,10 +149,12 @@ export async function poolView(app) {
       h('button.btn.btn-ghost', { style: { justifyContent: 'flex-start' }, on: { click: () => { sel.clear(); rows().forEach(q => sel.add(q.id)); render(); } } }, '☑ Görünenlerin hepsini seç'),
       h('button.btn.btn-ghost.btn-danger', { style: { justifyContent: 'flex-start' }, on: { click: async () => { if (!await confirmBox('Bütün havuz silinsin mi? Bu geri alınamaz.', 'Havuzu temizle')) return; await db.clear('questions'); all = []; sel.clear(); render(); } } }, '🗑 Havuzu temizle')));
 
+  fbar = filterBar(() => all, s => { st = s; page = 0; render(); });
+  lastLen = all.length;
   app.append(
     h('div.row', h('h1', { style: { margin: 0 } }, 'Soru Havuzum'), count, h('span.spacer'), hazirBtn(), addBtn(), cropBtn(), menu, imgsInp, backupInp),
     h('p.muted', 'Bir kez ekleyin, her belgede kullanın. Ekran görüntüsünü Ctrl+V ile yapıştırabilir ya da görselleri sürükleyip bırakabilirsiniz.'),
-    filterBar(all, s => { st = s; page = 0; render(); }),
+    fbar,
     selBar, list);
   render();
   return () => { document.removeEventListener('paste', onPaste); document.removeEventListener('drop', onDrop); document.removeEventListener('dragover', onOver); };

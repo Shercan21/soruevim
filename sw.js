@@ -1,5 +1,5 @@
 /* Soru Evim service worker — uygulama kabuğu önbellekte, veriler IndexedDB'de. */
-const VERSION = 'v2.1.2';
+const VERSION = 'v2.1.3';
 const SHELL = `soruevim-shell-${VERSION}`;
 const RUNTIME = 'soruevim-runtime';
 const SHELL_FILES = [
