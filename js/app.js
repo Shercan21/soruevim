@@ -84,18 +84,10 @@ async function forceUpdate() {
   } catch { }
   location.reload();
 }
-const menu = h('details', { style: { position: 'relative' } },
-  h('summary.btn.btn-sm', { title: 'Menü — yeni belge, aç, marka kimliği, görünüm' }, '☰'),
-  h('div.card.menu-pop',
-    h('a.btn.btn-sm', { href: '#/' }, '＋ Yeni belge'),
-    h('button.btn.btn-sm', { on: { click: () => openInp.click() } }, '📂 Kayıtlı belge aç'),
-    h('a.btn.btn-sm', { href: '#/marka' }, '🎨 Marka kimliğim'),
-    h('a.btn.btn-sm', { href: '#/tahta' }, '🖥 Akıllı tahta'),
-    h('button.btn.btn-sm', { on: { click: () => { location.hash = '#/'; setTimeout(startTour, 400); } } }, '🧭 Kısa tur'),
-    h('button.btn.btn-sm', { title: 'Sorularınız ve belgeleriniz silinmez', on: { click: forceUpdate } }, '🔄 Uygulamayı güncelle'),
-    h('div.small.muted', { style: { margin: '6px 8px 0' } }, 'Görünüm'), themeBtns), openInp);
-document.addEventListener('click', e => { if (!menu.contains(e.target)) menu.open = false; });
-$('.topbar').insertBefore(menu, $('#installBtn'));
+document.body.append(openInp);
+// Tema ve güncelleme, ana sayfanın altındaki küçük satırda gösterilir
+const themeSeg = () => h('div.seg', [['acik', '☀️ Açık'], ['koyu', '🌙 Koyu'], ['sistem', '🖥 Sistem']].map(([v, l]) => h('button' + (theme === v ? '.on' : ''), { type: 'button', on: { click: e => { theme = v; localStorage.setItem('tema', v); applyTheme(v); [...e.currentTarget.parentNode.children].forEach(b => b.classList.toggle('on', b === e.currentTarget)); } } }, l)));
+window.__soruevim = { themeSeg, forceUpdate, openFile: () => openInp.click(), tour: () => { location.hash = '#/'; setTimeout(startTour, 400); } };
 
 // ---------- PWA: service worker, kurulum, çevrimdışı ----------
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {

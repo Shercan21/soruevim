@@ -4,25 +4,28 @@ import { ciktiMetni } from './meb.js';
 import { BODY_FONTS, TITLE_FONTS, SIZES, PAPERS, DEFAULT_LOOK, loadQR } from './design.js';
 
 export const KINDS = {
-  foy: { ad: 'Konu Anlatım Föyü', kisa: 'Konu Föyü', aciklama: 'Başlık, not kutusu, örnek — yayınevi düzeni', ek: 'Föy' },
-  test: { ad: 'Yaprak Test', kisa: 'Yaprak Test', aciklama: 'Çoktan seçmeli, 2 sütunlu MEB düzeni', ek: 'Test' },
-  yazili: { ad: 'Yazılı Sınav', kisa: 'Yazılı', aciklama: 'Tek sütun, açık uçlu, puan çizelgeli', ek: 'Yazılı' },
-  deneme: { ad: 'Deneme Sınavı', kisa: 'Deneme', aciklama: 'LGS, TYT, AYT ya da genel — bölümlü kitapçık', ek: 'Deneme' },
-  banka: { ad: 'Soru Bankası', kisa: 'Soru Bankası', aciklama: 'Çok sayfalı derleme — kendi soru kitabınız', ek: 'Soru Bankası' },
+  foy: { ad: 'Konu Anlatımı', kisa: 'Konu Anlatımı', aciklama: 'Başlıklar, bilgi kutuları, çözümlü örnekler', ek: 'Föy' },
+  test: { ad: 'Tarama Testi', kisa: 'Test', aciklama: 'Çoktan seçmeli, iki sütun, cevap anahtarlı', ek: 'Test' },
+  yazili: { ad: 'Dönem Yazılısı', kisa: 'Yazılı', aciklama: 'MEB senaryolu, puanlı, açık uçlu ya da karma', ek: 'Yazılı' },
+  deneme: { ad: 'Deneme Kitapçığı', kisa: 'Deneme', aciklama: 'Genel ya da branş denemesi — LGS, TYT, AYT, okul', ek: 'Deneme' },
+  banka: { ad: 'Soru Kitabı', kisa: 'Soru Kitabı', aciklama: 'Kapaklı, içindekiler sayfalı, ünite ünite', ek: 'Soru Kitabı' },
 };
 
 // ---------- Deneme türleri ----------
 const S = (name, n, sure) => ({ name, n, sure });
+const DK = n => Math.max(10, Math.round(n * 1.4));
+const B = (id, ad, ders, n, sec) => ({ id, ad, grup: 'Branş denemesi', ders, sure: DK(n), bolumler: [S(sec || ders, n)] });
+export const BRANSLAR = ['Türkçe', 'Matematik', 'Fizik', 'Kimya', 'Biyoloji', 'Tarih', 'Coğrafya', 'Felsefe', 'Türk Dili ve Edebiyatı', 'Din Kültürü ve Ahlak Bilgisi', 'Fen Bilimleri', 'T.C. İnkılap Tarihi ve Atatürkçülük', 'Yabancı Dil'];
 export const DENEME_TURLERI = [
   { aile: 'LGS', not: '3 yanlış 1 doğruyu götürür (net = D − Y/3).', ceza: 3, sik: 4, turler: [
     { id: 'lgs-sozel', ad: 'LGS Sözel Bölüm', grup: 'Genel deneme', sure: 75, bolumler: [S('Türkçe', 20), S('T.C. İnkılap Tarihi ve Atatürkçülük', 10), S('Din Kültürü ve Ahlak Bilgisi', 10), S('Yabancı Dil', 10)] },
     { id: 'lgs-sayisal', ad: 'LGS Sayısal Bölüm', grup: 'Genel deneme', sure: 80, bolumler: [S('Matematik', 20), S('Fen Bilimleri', 20)] },
-    { id: 'lgs-tr', ad: 'LGS Türkçe', grup: 'Alan denemesi', sure: 30, bolumler: [S('Türkçe', 20)] },
-    { id: 'lgs-mat', ad: 'LGS Matematik', grup: 'Alan denemesi', sure: 40, bolumler: [S('Matematik', 20)] },
-    { id: 'lgs-fen', ad: 'LGS Fen Bilimleri', grup: 'Alan denemesi', sure: 40, bolumler: [S('Fen Bilimleri', 20)] },
-    { id: 'lgs-ink', ad: 'LGS İnkılap Tarihi', grup: 'Alan denemesi', sure: 15, bolumler: [S('T.C. İnkılap Tarihi ve Atatürkçülük', 10)] },
-    { id: 'lgs-din', ad: 'LGS Din Kültürü', grup: 'Alan denemesi', sure: 15, bolumler: [S('Din Kültürü ve Ahlak Bilgisi', 10)] },
-    { id: 'lgs-ing', ad: 'LGS Yabancı Dil', grup: 'Alan denemesi', sure: 15, bolumler: [S('Yabancı Dil', 10)] },
+    { ...B('lgs-tr', 'LGS Türkçe', 'Türkçe', 20), sure: 30 },
+    { ...B('lgs-mat', 'LGS Matematik', 'Matematik', 20), sure: 40 },
+    { ...B('lgs-fen', 'LGS Fen Bilimleri', 'Fen Bilimleri', 20), sure: 40 },
+    { ...B('lgs-ink', 'LGS İnkılap Tarihi', 'T.C. İnkılap Tarihi ve Atatürkçülük', 10), sure: 15 },
+    { ...B('lgs-din', 'LGS Din Kültürü', 'Din Kültürü ve Ahlak Bilgisi', 10), sure: 15 },
+    { ...B('lgs-ing', 'LGS Yabancı Dil', 'Yabancı Dil', 10), sure: 15 },
   ] },
   { aile: 'YKS', not: '4 yanlış 1 doğruyu götürür (net = D − Y/4).', ceza: 4, sik: 5, turler: [
     { id: 'tyt', ad: 'TYT', grup: 'Genel deneme', sure: 165, bolumler: [S('Türkçe', 40), S('Sosyal Bilimler', 20), S('Temel Matematik', 40), S('Fen Bilimleri', 20)] },
@@ -31,17 +34,25 @@ export const DENEME_TURLERI = [
     { id: 'ayt-soz', ad: 'AYT Sözel', grup: 'Genel deneme', sure: 90, bolumler: [S('Türk Dili ve Edebiyatı', 24), S('Tarih-1', 10), S('Coğrafya-1', 6), S('Tarih-2', 11), S('Coğrafya-2', 11), S('Felsefe Grubu', 12), S('Din Kültürü', 6)] },
     { id: 'ayt-tam', ad: 'AYT Tam Kitapçık', grup: 'Genel deneme', sure: 180, bolumler: [S('Türk Dili ve Edebiyatı–Sosyal Bilimler-1', 40), S('Sosyal Bilimler-2', 40), S('Matematik', 40), S('Fen Bilimleri', 40)] },
     { id: 'ydt', ad: 'YDT', grup: 'Genel deneme', sure: 120, bolumler: [S('Yabancı Dil', 80)] },
-    { id: 'tyt-tr', ad: 'TYT Türkçe', grup: 'Alan denemesi', sure: 55, bolumler: [S('Türkçe', 40)] },
-    { id: 'tyt-mat', ad: 'TYT Temel Matematik', grup: 'Alan denemesi', sure: 55, bolumler: [S('Temel Matematik', 40)] },
     { id: 'tyt-fen', ad: 'TYT Fen Bilimleri', grup: 'Alan denemesi', sure: 28, bolumler: [S('Fizik', 7), S('Kimya', 7), S('Biyoloji', 6)] },
     { id: 'tyt-sos', ad: 'TYT Sosyal Bilimler', grup: 'Alan denemesi', sure: 28, bolumler: [S('Tarih', 5), S('Coğrafya', 5), S('Felsefe', 5), S('Din Kültürü', 5)] },
-    { id: 'ayt-mat', ad: 'AYT Matematik', grup: 'Alan denemesi', sure: 45, bolumler: [S('Matematik', 40)] },
     { id: 'ayt-fen', ad: 'AYT Fen Bilimleri', grup: 'Alan denemesi', sure: 45, bolumler: [S('Fizik', 14), S('Kimya', 13), S('Biyoloji', 13)] },
     { id: 'ayt-ed', ad: 'AYT Edebiyat–Sosyal-1', grup: 'Alan denemesi', sure: 45, bolumler: [S('Türk Dili ve Edebiyatı', 24), S('Tarih-1', 10), S('Coğrafya-1', 6)] },
     { id: 'ayt-sos2', ad: 'AYT Sosyal Bilimler-2', grup: 'Alan denemesi', sure: 45, bolumler: [S('Tarih-2', 11), S('Coğrafya-2', 11), S('Felsefe Grubu', 12), S('Din Kültürü', 6)] },
+    { ...B('tyt-tr', 'TYT Türkçe', 'Türkçe', 40), sure: 55 },
+    { ...B('tyt-mat', 'TYT Temel Matematik', 'Matematik', 40, 'Temel Matematik'), sure: 55 },
+    B('tyt-fiz', 'TYT Fizik', 'Fizik', 7), B('tyt-kim', 'TYT Kimya', 'Kimya', 7), B('tyt-biy', 'TYT Biyoloji', 'Biyoloji', 6),
+    B('tyt-tar', 'TYT Tarih', 'Tarih', 5), B('tyt-cog', 'TYT Coğrafya', 'Coğrafya', 5), B('tyt-fel', 'TYT Felsefe', 'Felsefe', 5), B('tyt-din', 'TYT Din Kültürü', 'Din Kültürü ve Ahlak Bilgisi', 5),
+    { ...B('ayt-mat', 'AYT Matematik', 'Matematik', 40), sure: 60 },
+    B('ayt-fiz', 'AYT Fizik', 'Fizik', 14), B('ayt-kim', 'AYT Kimya', 'Kimya', 13), B('ayt-biy', 'AYT Biyoloji', 'Biyoloji', 13),
+    { ...B('ayt-edb', 'AYT Edebiyat', 'Türk Dili ve Edebiyatı', 24), sure: 35 },
+    { id: 'ayt-tar', ad: 'AYT Tarih (1 + 2)', grup: 'Branş denemesi', ders: 'Tarih', sure: 30, bolumler: [S('Tarih-1', 10), S('Tarih-2', 11)] },
+    { id: 'ayt-cog', ad: 'AYT Coğrafya (1 + 2)', grup: 'Branş denemesi', ders: 'Coğrafya', sure: 25, bolumler: [S('Coğrafya-1', 6), S('Coğrafya-2', 11)] },
+    B('ayt-fel', 'AYT Felsefe Grubu', 'Felsefe', 12, 'Felsefe Grubu'), B('ayt-din', 'AYT Din Kültürü', 'Din Kültürü ve Ahlak Bilgisi', 6),
   ] },
   { aile: 'Serbest', not: 'Yanlış cevap doğruyu götürmez.', ceza: 0, sik: 5, turler: [
     { id: 'serbest', ad: 'Serbest Deneme', grup: 'Genel deneme', sure: 0, bolumler: [S('Bölüm 1', 0)] },
+    ...BRANSLAR.map((d, i) => ({ id: 'okul-' + i, ad: 'Okul ' + d + ' Denemesi', grup: 'Branş denemesi', ders: d, sure: 40, bolumler: [S(d, 20)] })),
   ] },
 ];
 export const denemeTuru = id => { for (const a of DENEME_TURLERI) for (const t of a.turler) if (t.id === id) return { ...t, aile: a.aile, ceza: a.ceza, sik: a.sik, not: a.not }; return null; };

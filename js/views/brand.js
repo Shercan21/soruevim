@@ -8,7 +8,7 @@ export const SAMPLE_Q = {
   s2: { id: 's2', type: 'coktan', text: 'CaCO_{3} bileşiğindeki Ca^{2+} iyonunun elektron sayısı kaçtır? (_{20}Ca)', choices: ['18', '20', '22', '16', '2'], answer: 'A' },
   s3: { id: 's3', type: 'coktan', text: 'Hangisi !!değildir!!: ==homojen karışım==?', choices: ['Tuzlu su', 'Hava', 'Kolonya', 'Ayran', 'Şekerli su'], answer: 'D' },
 };
-const SAMPLE_DOC = { kind: 'test', title: 'Yaprak Test', meta: { sinif: '9. Sınıf', ders: 'Kimya' }, items: [{ qid: 's1' }, { qid: 's2' }, { qid: 's3' }], ayar: { anahtar: false, ogrenci: { ad: true, sinif: true, no: true, veli: true } } };
+const SAMPLE_DOC = { kind: 'test', title: 'Tarama Testi', meta: { sinif: '9. Sınıf', ders: 'Kimya' }, items: [{ qid: 's1' }, { qid: 's2' }, { qid: 's3' }], ayar: { anahtar: false, ogrenci: { ad: true, sinif: true, no: true, veli: true } } };
 
 export async function brandView(app, { inModal = false } = {}) {
   ensureFonts();
@@ -30,8 +30,8 @@ export async function brandView(app, { inModal = false } = {}) {
   const changed = () => { save(); refresh(); };
 
   // --- Sekmeler ---
-  const tabHazir = h('button.on', { type: 'button' }, 'Hazır Tasarımlar');
-  const tabKendim = h('button', { type: 'button' }, 'Kendim Ayarlayayım');
+  const tabHazir = h('button.on', { type: 'button' }, 'Şablon Galerisi');
+  const tabKendim = h('button', { type: 'button' }, 'Özel Ayarlar');
   const pane = h('div');
   const tabs = h('div.seg', { style: { width: '100%', display: 'flex' } }, tabHazir, tabKendim);
   [tabHazir, tabKendim].forEach(x => x.style.flex = '1');
@@ -112,7 +112,7 @@ export async function brandView(app, { inModal = false } = {}) {
   }
 
   drawHazir();
-  const side = h('div.editor-side', h('div.card', h('h2', 'Marka kimliği'), tabs), pane, inModal ? null : h('a.btn.btn-primary', { href: '#/' }, 'Tamam, belge oluşturmaya geç →'));
+  const side = h('div.editor-side', h('div.card', h('h2', 'Kurum kimliği'), tabs), pane, inModal ? null : h('a.btn.btn-primary', { href: '#/' }, 'Tamam, belge oluşturmaya geç →'));
   app.append(h('div.editor', side, area));
   refresh();
   return () => window.removeEventListener('resize', fitScale);

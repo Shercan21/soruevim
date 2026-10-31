@@ -14,26 +14,27 @@ export async function homeView(app) {
 
   app.append(...[
     h('section.hero',
-      h('h1', 'Ne oluşturmak ', h('span.hl', 'istiyorsunuz?')),
+      h('h1', 'Bugün ne ', h('span.hl', 'hazırlıyoruz?')),
       h('p.muted', 'Seçtiğiniz türe göre sayfa düzeni, bölümler ve puanlama hazır gelir.')),
-    son ? h('a.card.kind-card', { href: '#/belge/' + son.id, style: { marginTop: '14px', background: 'linear-gradient(90deg,var(--card),color-mix(in srgb,var(--orange) 10%,var(--card)))' } }, h('div.ico', { html: ICONS[son.kind] }), h('div', h('h3', 'Kaldığınız yerden devam edin'), h('p', (son.title || KINDS[son.kind].ad) + ' · ' + countOf(son))), h('span.arrow', '→')) : null,
+    son ? h('a.card.kind-card', { href: '#/belge/' + son.id, style: { marginTop: '14px', background: 'linear-gradient(90deg,var(--card),color-mix(in srgb,var(--orange) 10%,var(--card)))' } }, h('div.ico', { html: ICONS[son.kind] }), h('div', h('h3', 'Son çalıştığınız dosya'), h('p', (son.title || KINDS[son.kind].ad) + ' · ' + countOf(son))), h('span.arrow', '→')) : null,
     h('div.grid', { style: { marginTop: '18px' } },
       h('a.card.kind-card', { href: '#/marka', 'data-tour': 'marka', style: brandReady ? null : { borderColor: 'var(--orange)' } },
         ico('marka'),
-        h('div', h('h3', 'Marka Kimliğini Oluştur', brandReady ? h('span.tag', '✓ HAZIR') : null), h('p', 'Logonuz, renginiz ve iletişiminiz ürettiğiniz her belgede görünsün. Bir kez kurmanız yeterli.')),
+        h('div', h('h3', 'Kurum Kimliğinizi Hazırlayın', brandReady ? h('span.tag', '✓ HAZIR') : null), h('p', 'Logonuz, renginiz ve iletişiminiz ürettiğiniz her belgede görünsün. Bir kez kurmanız yeterli.')),
         h('span.arrow', '→'))),
     h('div.grid.grid-2', { style: { marginTop: '14px' } },
-      kindCard('foy'), kindCard('test'), kindCard('yazili'), kindCard('deneme'), kindCard('banka', 'ÇOK SAYFA')),
+      kindCard('test'), kindCard('yazili'), kindCard('deneme'), kindCard('foy'), kindCard('banka', 'ÇOK SAYFA')),
     h('div.grid', { style: { marginTop: '14px' } },
-      h('a.card.kind-card', { href: '#/havuz', 'data-tour': 'havuz' }, ico('havuz'), h('div', h('h3', 'Soru Havuzum', h('span.tag', qs.length + ' SORU')), h('p', 'Kırptığınız soruların havuzu — belge değil, depo')), h('span.arrow', '→')),
-      h('a.card.kind-card', { href: '#/sinavlar', 'data-tour': 'sinav' }, ico('sinav'), h('div', h('h3', 'Sınavlarım'), h('p', 'Ekrandan sınav, cevap girişiyle yüz yüze sınav, sonuçlar ve karneler')), h('span.arrow', '→'))),
+      h('a.card.kind-card', { href: '#/havuz', 'data-tour': 'havuz' }, ico('havuz'), h('div', h('h3', 'Soru Deposu', h('span.tag', qs.length + ' SORU')), h('p', 'Kırptığınız ve yazdığınız bütün sorular burada birikir')), h('span.arrow', '→')),
+      h('a.card.kind-card', { href: '#/tahta' }, ico('tahta'), h('div', h('h3', 'Akıllı Tahta'), h('p', 'Soruları sınıfta büyük gösterin, cevabı istediğiniz an açın')), h('span.arrow', '→')),
+      h('a.card.kind-card', { href: '#/sinavlar', 'data-tour': 'sinav' }, ico('sinav'), h('div', h('h3', 'Sınav ve Karne'), h('p', 'Online sınav, optik okuma, sonuçlar ve karneler')), h('span.arrow', '→'))),
     docs.length ? h('div', h('div.eyebrow', 'Son belgeler'),
       h('div.grid.grid-2', docs.sort((a, b) => b.updated - a.updated).slice(0, 4).map(docCard))) : null,
-    h('div.eyebrow', 'Hangi belgeyi seçerseniz seçin'),
-    h('div.feature', h('h4', 'Bir kez kurun, her belgede görünsün'), h('p', 'Logonuz, renginiz ve iletişim satırınız beş belgenin hepsinde aynı yerde basılır.')),
-    h('div.feature', h('h4', 'Sorularınız birikir'), h('p', 'PDF\'ten kırptığınız sorular havuzda kalır; sonraki testte, denemede, bankada yeniden kullanılır.')),
-    h('div.feature', h('h4', 'Çıktı baskıya hazır'), h('p', 'Sayfa sonları, sütunlar ve numaralandırma A4 düzenine göre hesaplanır — kırpılan satır olmaz.')),
-    h('div.feature', h('h4', 'İnternet olmadan da çalışır'), h('p', 'Uygulamayı ana ekrana ekleyin; her şey cihazınızda saklanır, çevrimdışıyken de belge hazırlarsınız.')),
+    window.__soruevim ? h('div.row.home-foot', { style: { marginTop: '36px', justifyContent: 'center', gap: '10px' } },
+      window.__soruevim.themeSeg(),
+      h('button.btn.btn-sm.btn-ghost', { on: { click: window.__soruevim.openFile } }, '📂 Dosyadan aç'),
+      h('button.btn.btn-sm.btn-ghost', { title: 'Sorularınız ve belgeleriniz silinmez', on: { click: window.__soruevim.forceUpdate } }, '🔄 Uygulamayı güncelle'),
+      h('button.btn.btn-sm.btn-ghost', { on: { click: window.__soruevim.tour } }, '🧭 Tanıtım turu')) : null,
   ].filter(Boolean));
 }
 
@@ -72,10 +73,10 @@ export async function docsView(app) {
 
   app.append(
     h('div.row', { style: { marginBottom: '16px' } },
-      h('h1', { style: { margin: 0 } }, 'Belgelerim'), h('span.spacer'),
+      h('h1', { style: { margin: 0 } }, 'Dosyalarım'), h('span.spacer'),
       h('button.btn', { on: { click: async () => { const data = await db.exportAll(); download(new Blob([JSON.stringify(data)], { type: 'application/json' }), 'soruevim-yedek-' + new Date().toISOString().slice(0, 10) + '.json'); } } }, 'Tümünü yedekle'),
       h('button.btn', { on: { click: () => importInp.click() } }, 'Yedeği aç'), importInp,
-      h('a.btn.btn-primary', { href: '#/' }, '+ Yeni belge')),
+      h('a.btn.btn-primary', { href: '#/' }, '+ Yeni oluştur')),
     h('p.muted.small', 'Yedek dosyasını başka bir bilgisayarda açarak okulda başladığınız işi evde bitirebilirsiniz.'),
     list);
 }
@@ -88,10 +89,10 @@ function countOf(d) {
 
 // ---------- Kısa tur ----------
 const TOUR = [
-  ['marka', 'Önce marka kimliğinizi kurun: logo, renk, hazır tasarımlar. Her belgede kendiliğinden uygulanır.'],
-  ['havuz', 'Soru havuzu: hazır kimya bankalarını ekleyin, PDF’ten kırpın ya da kendi sorunuzu yazın.'],
-  ['test', 'Bir belge türü seçin; sorular havuzdan gelir, sayfa düzeni A4’e göre kendiliğinden kurulur.'],
-  ['sinav', 'Hazırladığınız testi ekrandan, bağlantıyla ya da kâğıtla sınav yapın; sonuçlar ve karneler burada.'],
+  ['marka', 'Önce kurum kimliğinizi hazırlayın: logo, renk, şablon galerisi. Her dosyada kendiliğinden uygulanır.'],
+  ['havuz', 'Soru deposu: hazır kimya bankalarını ekleyin, PDF’ten kırpın ya da kendi sorunuzu yazın.'],
+  ['test', 'Ne hazırlayacağınızı seçin; sorular havuzdan gelir, sayfa düzeni A4’e göre kendiliğinden kurulur.'],
+  ['sinav', 'Hazırladığınız sınavı bağlantıyla telefonlara gönderin ya da kâğıtla yapıp optikten okutun; sonuçlar ve karneler burada.'],
 ];
 export function startTour(i = 0) {
   document.querySelectorAll('.tour,.tour-hl').forEach(e => e.classList?.contains('tour') ? e.remove() : e.classList.remove('tour-hl'));

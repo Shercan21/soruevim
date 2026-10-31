@@ -59,10 +59,10 @@ export async function examsView(app) {
   };
 
   app.append(
-    h('div.row', h('h1', { style: { margin: 0 } }, 'Sınavlarım'), h('span.spacer'),
+    h('div.row', h('h1', { style: { margin: 0 } }, 'Sınav ve Karne'), h('span.spacer'),
       h('button.btn', { on: { click: keyOnly } }, 'Kitapçık cevap anahtarıyla'),
       h('button.btn.btn-primary', { on: { click: fromDoc } }, '+ Belgeden sınav')),
-    h('p.muted', 'Testi ekrandan çözdürün (tablet, akıllı tahta, okul bilgisayarı) ya da kâğıtla yapıp cevapları girin; sonuçlar ve karneler burada toplanır.'),
+    h('p.muted', 'Sınavı bağlantıyla telefonlara gönderin ya da kâğıtla yapıp optikten okutun; sonuçlar ve karneler burada toplanır.'),
     exams.length ? h('div.grid', exams.map(ex => {
       const rs = results.filter(r => r.examId === ex.id);
       const avg = rs.length ? (rs.reduce((a, r) => a + r.puan, 0) / rs.length).toFixed(1) : '—';
@@ -119,13 +119,8 @@ export async function examDetailView(app, id) {
   };
 
   app.append(...[
-    h('div.row', { style: { marginBottom: '8px' } }, h('a.btn.btn-sm.btn-ghost', { href: '#/sinavlar' }, '← Sınavlarım'), h('h1', { style: { margin: 0, fontSize: '1.4rem' } }, ex.title)),
+    h('div.row', { style: { marginBottom: '8px' } }, h('a.btn.btn-sm.btn-ghost', { href: '#/sinavlar' }, '← Sınav ve Karne'), h('h1', { style: { margin: 0, fontSize: '1.4rem' } }, ex.title)),
     h('div.grid.grid-2',
-      h('div.card', h('h3', 'Ekrandan sınav'),
-        ex.kind === 'anahtar' ? h('p.muted.small', 'Bu sınav yalnız cevap anahtarıyla oluşturuldu; sorular kâğıtta. Cevap girişini kullanın.') :
-          h('div', h('p.muted.small', 'Öğrenci bu cihazda adını yazıp testi çözer; cevap anahtarı öğrenciye gösterilmez. Sırayla birden çok öğrenci çözebilir.'),
-            h('label.check', { style: { marginBottom: '10px' } }, h('input', { type: 'checkbox', checked: ex.karistir !== false, on: { change: async e => { ex.karistir = e.target.checked; await db.put('exams', ex); } } }), 'Soru sırası her öğrencide farklı olsun'),
-            h('a.btn.btn-primary', { href: '#/coz/' + ex.id }, '▶ Sınavı başlat'))),
       h('div.card', h('h3', 'Yüz yüze (kâğıt) sınav'), h('p.muted.small', 'Optik ya da kâğıttaki cevapları yazın; puan ve net otomatik hesaplanır.'),
         h('button.btn', { on: { click: entry } }, '✎ Cevap gir'))),
     h('div.grid.grid-2', { style: { marginTop: '14px' } },

@@ -184,3 +184,55 @@ body.student-mode .topnav,body.student-mode .topbar .btn,body.student-mode .topb
 .menu-pop .btn{white-space:normal;text-align:left;min-width:0}
 .menu-pop .seg{flex-wrap:wrap}
 @media(max-width:700px){.menu-pop{position:fixed;left:10px;right:10px;top:auto;width:auto;max-width:none;max-height:75vh;overflow:auto;margin-top:6px;box-shadow:0 10px 30px rgba(0,0,0,.18)}}
+
+/* ================= CANLI TEMA (v2.3) ================= */
+:root{
+  --navy:#4f46e5; --navy-2:#4338ca; --orange:#f97316; --pink:#ec4899; --teal:#14b8a6;
+  --cream:#f6f5fb; --cream-2:#ecebf8; --card:#ffffff; --line:#e4e2f1; --ink:#1e1b3a; --muted:#6c6987;
+  --grad:linear-gradient(135deg,#6366f1 0%,#8b5cf6 45%,#ec4899 100%);
+  --grad-warm:linear-gradient(135deg,#f97316 0%,#f43f5e 100%);
+  --shadow:0 1px 2px rgba(30,27,58,.05),0 8px 24px rgba(79,70,229,.08);
+}
+:root[data-theme=dark]{--cream:#121222;--cream-2:#24233d;--card:#1b1a30;--line:#2f2d4d;--ink:#ecebff;--muted:#a3a1c4;--surface:#22213a;--navy:#818cf8;--navy-2:#6366f1}
+body{background:radial-gradient(1200px 600px at 100% -10%,color-mix(in srgb,#8b5cf6 14%,transparent),transparent 60%),radial-gradient(900px 500px at -10% 10%,color-mix(in srgb,#14b8a6 10%,transparent),transparent 60%),var(--cream);background-attachment:fixed}
+.topbar{background:color-mix(in srgb,var(--card) 82%,transparent)}
+:root[data-theme=dark] .topbar{background:color-mix(in srgb,var(--card) 85%,transparent)}
+.topnav a{transition:background .2s,color .2s}
+.topnav a:hover{background:var(--cream-2);color:var(--ink)}
+.topnav a.active{background:var(--grad);color:#fff;box-shadow:0 4px 14px rgba(99,102,241,.35)}
+.btn{transition:transform .15s ease,box-shadow .2s ease,background .2s,border-color .2s;border-radius:12px}
+.btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(79,70,229,.12);border-color:color-mix(in srgb,var(--navy) 40%,var(--line))}
+.btn:active{transform:translateY(0) scale(.98)}
+.btn-primary{background:var(--grad);background-size:160% 160%;border:0;color:#fff;box-shadow:0 4px 14px rgba(99,102,241,.3);animation:gradShift 8s ease infinite}
+.btn-primary:hover{background:var(--grad);background-size:160% 160%;box-shadow:0 8px 22px rgba(139,92,246,.4)}
+.btn-accent{background:var(--grad-warm);border:0;color:#fff;box-shadow:0 4px 14px rgba(244,63,94,.28)}
+.btn-accent:hover{box-shadow:0 8px 22px rgba(244,63,94,.38)}
+.btn-ghost:hover{box-shadow:none;background:var(--cream-2)}
+@keyframes gradShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+.card{border-radius:18px;transition:box-shadow .25s,transform .25s,border-color .25s}
+.kind-card{position:relative;overflow:hidden}
+.kind-card::before{content:"";position:absolute;inset:0;background:var(--grad);opacity:0;transition:opacity .3s;z-index:0}
+.kind-card>*{position:relative;z-index:1}
+.kind-card:hover{transform:translateY(-3px);border-color:transparent;box-shadow:0 14px 34px rgba(99,102,241,.22)}
+.kind-card:hover::before{opacity:.07}
+.kind-card .ico{background:var(--grad);color:#fff;box-shadow:0 6px 16px rgba(139,92,246,.3);transition:transform .3s}
+.kind-card:hover .ico{transform:rotate(-6deg) scale(1.08)}
+.kind-card:hover .arrow{color:var(--navy);transform:translateX(3px)}
+.kind-card .arrow{transition:transform .2s,color .2s}
+.hero h1 .hl{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.seg{border-radius:12px}
+.seg button{transition:background .2s,color .2s}
+.seg button.on{background:var(--grad);color:#fff}
+.seg-lg{display:flex;width:100%}
+.seg-lg button{flex:1;padding:11px 14px;font-size:1rem}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip-btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px 12px;border-radius:999px;cursor:pointer;font-weight:600;font-size:.88rem;transition:all .2s}
+.chip-btn:hover{border-color:var(--navy);transform:translateY(-1px)}
+.chip-btn.on{background:var(--grad);color:#fff;border-color:transparent;box-shadow:0 4px 12px rgba(99,102,241,.3)}
+.chip.ans{background:var(--grad)}
+.tur-opt{border-radius:12px;transition:background .2s}
+.tur-opt:has(input:checked){background:color-mix(in srgb,var(--navy) 10%,var(--card));outline:2px solid color-mix(in srgb,var(--navy) 45%,transparent)}
+.brand .logo,.brand img{transition:transform .4s}
+.brand:hover img{transform:rotate(-8deg)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:720px){.topnav{flex-wrap:wrap;overflow:visible;gap:4px}.topnav a{padding:6px 10px;font-size:.88rem}}

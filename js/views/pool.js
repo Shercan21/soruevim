@@ -62,7 +62,7 @@ export function filterBar(allSrc, onChange, preset = {}) {
     mk('zorluk', 'Her zorluk', Object.entries(LEVELS)),
     mk('type', 'Her tip', Object.entries(QTYPES)),
     mk('cevap', 'Cevap durumu', [['var', 'Cevaplı'], ['yok', 'Cevapsız']]),
-    mk('kaynak', 'Her kaynak', [['hazir', 'Hazır bankalar'], ['benim', 'Kendi sorularım'], ['yazdigim', 'Yazdığım sorular'], ['kirpilan', 'Kırpılan sorular']]));
+    mk('kaynak', 'Her kaynak', [['hazir', 'Hazır bankalar'], ['benim', 'Kendi sorularım'], ['yazdigim', 'Elle eklenenler'], ['kirpilan', 'Kırpılan sorular']]));
   refreshDeps();
   bar.refresh = refreshDeps;
   return bar;
@@ -142,7 +142,7 @@ export async function poolView(app) {
 
   const menu = h('details', { style: { position: 'relative' } }, h('summary.btn', { style: { listStyle: 'none' } }, 'Diğer ▾'),
     h('div.card', { style: { position: 'absolute', right: 0, top: '42px', zIndex: 30, width: '300px', display: 'grid', gap: '4px', padding: '8px' } },
-      h('button.btn.btn-ghost', { style: { justifyContent: 'flex-start' }, on: { click: () => distributionBuilder(all) } }, '📊 Dağılım tablosuyla sınav kur'),
+      h('button.btn.btn-ghost', { style: { justifyContent: 'flex-start' }, on: { click: () => distributionBuilder(all) } }, '📊 Kazanım tablosuyla seç'),
       h('button.btn.btn-ghost', { style: { justifyContent: 'flex-start' }, on: { click: () => imgsInp.click() } }, '🖼 Görselleri soru olarak ekle'),
       h('button.btn.btn-ghost', { style: { justifyContent: 'flex-start' }, on: { click: () => exportQuestions(all, 'soru-havuzu') } }, '💾 Yedek al (bütün havuz)'),
       h('button.btn.btn-ghost', { style: { justifyContent: 'flex-start' }, on: { click: () => backupInp.click() } }, '📂 Yedekten aç'),
@@ -152,7 +152,7 @@ export async function poolView(app) {
   fbar = filterBar(() => all, s => { st = s; page = 0; render(); });
   lastLen = all.length;
   app.append(
-    h('div.row', h('h1', { style: { margin: 0 } }, 'Soru Havuzum'), count, h('span.spacer'), hazirBtn(), addBtn(), cropBtn(), menu, imgsInp, backupInp),
+    h('div.row', h('h1', { style: { margin: 0 } }, 'Soru Deposu'), count, h('span.spacer'), hazirBtn(), addBtn(), cropBtn(), menu, imgsInp, backupInp),
     h('p.muted', 'Bir kez ekleyin, her belgede kullanın. Ekran görüntüsünü Ctrl+V ile yapıştırabilir ya da görselleri sürükleyip bırakabilirsiniz.'),
     fbar,
     selBar, list);
@@ -182,7 +182,7 @@ function createFrom(ids) {
     sessionStorage.setItem('yeniQids', JSON.stringify(ids)); location.hash = '#/yeni/' + kind;
   } } }, h('b', label), h('span.small.muted', desc));
   m = modal(ids.length + ' seçili soruyla oluştur', h('div', { style: { display: 'grid', gap: '8px' } },
-    opt('tahta', 'Akıllı Tahta', 'Ekranda tek tek çözdür'), opt('foy', 'Konu Föyü', 'Sorular “Sıra Sizde” olur'), opt('test', 'Yaprak Test', 'İki sütunlu düzen'), opt('yazili', 'Yazılı Sınav', 'Tek sütun, puan çizelgeli'), opt('deneme', 'Deneme Sınavı', 'LGS, TYT, AYT ya da genel'), opt('banka', 'Soru Bankası', 'Çok sayfalı derleme')));
+    opt('tahta', 'Akıllı Tahta', 'Ekranda tek tek çözdür'), opt('test', 'Tarama Testi', 'İki sütunlu düzen'), opt('yazili', 'Dönem Yazılısı', 'Puanlı, tek sütun'), opt('deneme', 'Deneme Kitapçığı', 'Genel ya da branş'), opt('foy', 'Konu Anlatımı', 'Sorular alıştırma olur'), opt('banka', 'Soru Kitabı', 'Çok sayfalı derleme')));
 }
 
 // ---------- Hazır bankalar ----------
@@ -247,7 +247,7 @@ function bulkAnswers(ids, all, onDone) {
 
 async function bulkStamp(ids, all, onDone) {
   const b = await getBrand();
-  if (!(b.damgalar || []).length) { toast('Önce Marka Kimliği → Damgalarım’dan damga oluşturun'); return; }
+  if (!(b.damgalar || []).length) { toast('Önce Kurum Kimliği → Damgalarım’dan damga oluşturun'); return; }
   let m;
   m = modal('Seçili sorulara damga bas', h('div.row', [...b.damgalar.map(d => h('button', { style: { border: '1px solid var(--line)', borderRadius: '8px', background: '#fff', padding: '6px', cursor: 'pointer' }, on: { click: async () => { for (const id of ids) { const q = all.find(x => x.id === id); q.damga = d.id; await db.put('questions', q); } m.close(); toast('Damga basıldı'); onDone(); } } }, h('img', { src: d.img, style: { width: '64px' } }))),
     h('button.btn', { on: { click: async () => { for (const id of ids) { const q = all.find(x => x.id === id); delete q.damga; await db.put('questions', q); } m.close(); onDone(); } } }, 'Damgayı kaldır')]));
@@ -274,7 +274,7 @@ function distributionBuilder(all) {
   const sinifs = [...new Set([...all.map(q => q.sinif).filter(Boolean), ...Object.keys(OGRENME_CIKTILARI)])].sort((a, b) => a.localeCompare(b, 'tr', { numeric: true }));
   const derss = [...new Set([...all.map(q => q.ders).filter(Boolean), ...Object.values(SENARYOLAR).flatMap(x => Object.keys(x))])].sort((a, b) => a.localeCompare(b, 'tr'));
   let m;
-  m = modal('Dağılım tablosuyla sınav kur', h('div', { style: { display: 'grid', gap: '10px' } }, h('p.small.muted', 'Öğrenme çıktısı başına kaç soru istediğinizi yazın; sorular havuzdan rastgele seçilir.'),
+  m = modal('Kazanım tablosuyla soru seç', h('div', { style: { display: 'grid', gap: '10px' } }, h('p.small.muted', 'Öğrenme çıktısı başına kaç soru istediğinizi yazın; sorular havuzdan rastgele seçilir.'),
     h('div.row', h('select.inp', { style: { width: 'auto' }, on: { change: e => { sinif = e.target.value; draw(); } } }, h('option', { value: '' }, 'Sınıf'), sinifs.map(s => h('option', { value: s }, s))), h('select.inp', { style: { width: 'auto' }, on: { change: e => { ders = e.target.value; draw(); } } }, h('option', { value: '' }, 'Ders'), derss.map(s => h('option', { value: s }, s)))), box),
     { wide: true, actions: ['test', 'yazili'].map(kind => h('button.btn.btn-primary', { on: { click: () => {
       const ids = [];
@@ -409,7 +409,7 @@ export async function pickQuestions({ exclude = [], title = 'Havuzdan soru seç'
     const render = () => {
       list.innerHTML = '';
       const rows = applyFilter(all, st).filter(q => !ex.has(q.id));
-      if (!rows.length) list.append(h('div.empty', all.length ? 'Uygun soru yok. Üstteki süzgeçleri gevşetin.' : 'Havuz boş. Önce Soru Havuzu’na soru ekleyin ya da hazır bankaları yükleyin.'));
+      if (!rows.length) list.append(h('div.empty', all.length ? 'Uygun soru yok. Üstteki süzgeçleri gevşetin.' : 'Havuz boş. Önce Soru Deposu’na soru ekleyin ya da hazır bankaları yükleyin.'));
       for (const q of rows.slice(0, lim)) {
         const el = qCard(q, { selected: chosen.includes(q.id), onClick: () => { const i = chosen.indexOf(q.id); i < 0 ? chosen.push(q.id) : chosen.splice(i, 1); el.classList.toggle('selected'); cnt.textContent = chosen.length; } });
         list.append(el);
@@ -461,16 +461,16 @@ export async function cropTool(onDone) {
   const pageLbl = h('span.small.muted', '');
   const thumbs = h('div', { style: { display: 'grid', gap: '6px', maxHeight: '26vh', overflow: 'auto' } });
   const preview = h('img.thumb', { hidden: true });
-  const status = h('p.small.muted', 'Kütüphaneden bir dosya seçin ya da yeni PDF / sayfa görseli yükleyin.');
+  const status = h('p.small.muted', 'Raftan bir dosya seçin ya da yeni PDF / sayfa görseli yükleyin.');
   const lib = h('div', { style: { display: 'grid', gap: '4px', maxHeight: '22vh', overflow: 'auto' } });
 
   const drawLib = async () => {
     const files = (await db.all('files')).sort((a, b) => b.added - a.added);
     lib.innerHTML = '';
-    if (!files.length) lib.append(h('div.small.muted', 'Kütüphane boş.'));
+    if (!files.length) lib.append(h('div.small.muted', 'Raf boş.'));
     files.forEach(f => lib.append(h('div.item-row', { style: { padding: '4px 6px', background: f.id === curFileId ? 'var(--cream-2)' : null } },
       h('span.txt', { title: f.name, style: { cursor: 'pointer' }, on: { click: () => openStored(f) } }, (f.type === 'pdf' ? '📄 ' : '🖼 ') + f.name),
-      h('button.icon-btn', { title: 'Kütüphaneden sil', on: { click: async () => { await db.del('files', f.id); drawLib(); } } }, '✕'))));
+      h('button.icon-btn', { title: 'Raftan kaldır', on: { click: async () => { await db.del('files', f.id); drawLib(); } } }, '✕'))));
   };
   const fileInp = h('input', { type: 'file', accept: 'application/pdf,image/*', hidden: true, on: { change: async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; const rec = { id: uid(), name: f.name, type: /pdf/i.test(f.type) || /\.pdf$/i.test(f.name) ? 'pdf' : 'img', blob: f, added: Date.now(), page: 1 }; try { await db.put('files', rec); } catch { } curFileId = rec.id; drawLib(); openFile(rec.blob, rec.type, rec.name, 1); } } });
   const openStored = rec => { curFileId = rec.id; drawLib(); openFile(rec.blob, rec.type, rec.name, rec.page || 1); };
@@ -665,7 +665,7 @@ export async function cropTool(onDone) {
         h('button.btn.btn-sm', { title: 'Açık sayfa cevap anahtarıysa okuyup sorulara yazar', on: { click: readKey } }, '🔑 Bu sayfadaki anahtarı oku')),
       stage, status),
     h('div.crop-side', { style: { display: 'grid', gap: '10px', alignContent: 'start' } },
-      h('b', 'Kütüphane'), lib,
+      h('b', 'Dosya rafı'), lib,
       h('b', 'Etiketler (sonraki sorulara da uygulanır)'),
       metaInputs.sinif, metaInputs.ders, metaInputs.konu, h('datalist#dersList2', DERSLER.map(x => h('option', { value: x }))),
       preview,
