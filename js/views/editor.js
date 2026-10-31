@@ -86,15 +86,19 @@ async function senaryoCard(onKur) {
   const pool = kod => all.filter(q => q.kazanim === kod && q.sinif === st.sinif && (q.ders || '') === st.ders);
   const draw = () => {
     box.innerHTML = '';
-    const data = st.ders === 'Kimya' ? SENARYOLAR[st.sinif] : null;
+    const data = SENARYOLAR[st.sinif]?.[st.ders] || null;
+    const mevcut = Object.keys(SENARYOLAR[st.sinif] || {});
     const sinavlar = data ? Object.keys(data) : [];
     if (!sinavlar.includes(st.sinav)) st.sinav = sinavlar[0] || '';
     box.append(h('div.grid.grid-3', { style: { gap: '8px' } },
       h('label.fld', 'Sınıf', sel(SINIFLAR.slice(4, 12), st.sinif, v => { st.sinif = v; st.sen = 0; draw(); })),
-      h('label.fld', 'Ders', sel(DERSLER, st.ders, v => { st.ders = v; st.sen = 0; draw(); })),
+      h('label.fld', 'Ders', h('select.inp', { on: { change: e => { st.ders = e.target.value; st.sen = 0; draw(); } } },
+        mevcut.length ? h('optgroup', { label: 'Senaryosu olan dersler' }, mevcut.map(o => h('option', { value: o, selected: o === st.ders }, o))) : null,
+        h('optgroup', { label: 'Diğer dersler' }, DERSLER.filter(x => !mevcut.includes(x)).map(o => h('option', { value: o, selected: o === st.ders }, o))))),
       h('label.fld', 'Sınav', sinavlar.length ? sel(sinavlar, st.sinav, v => { st.sinav = v; st.sen = 0; draw(); }) : h('select.inp', { disabled: true }, h('option', '—')))));
-    if (!data) { box.append(h('p.small.muted', { style: { marginTop: '10px' } }, `${st.sinif} ${st.ders} için senaryo tablosu henüz eklenmedi. Şimdilik yalnız kimya (9–12) var; boş kâğıtla başlayıp havuzdan soru ekleyebilirsiniz.`)); return; }
+    if (!data) { box.append(h('p.small.muted', { style: { marginTop: '10px' } }, `${st.sinif} ${st.ders} için ${SENARYO_YILI} senaryo tablosu yok` + (mevcut.length ? ` (bu sınıfta olanlar: ${mevcut.join(', ')}).` : '. 8. sınıf ve 12. sınıfta (kimya dışında) OYSS senaryosu yayımlanmadı.') + ' Boş kâğıtla başlayıp havuzdan soru ekleyebilirsiniz.')); return; }
     const list = data[st.sinav];
+    if (list?.ulke) { box.append(h('p.small', { style: { marginTop: '10px' } }, `${st.sinif} ${st.ders} ${st.sinav} ülke genelinde tek ortak sınav olarak yapılır; okul senaryosu yok.`)); return; }
     box.append(h('div.row', { style: { margin: '10px 0 6px', gap: '6px', flexWrap: 'wrap' } }, list.map((x, i) => h('button.btn.btn-sm' + (i === st.sen ? '.btn-primary' : ''), { on: { click: () => { st.sen = i; draw(); } } }, `${x.ad} · ${Object.values(x.d).reduce((a, b) => a + b, 0)} soru`))));
     const sc = list[st.sen];
     let eksik = 0;

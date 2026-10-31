@@ -262,17 +262,17 @@ function distributionBuilder(all) {
     box.innerHTML = '';
     const pool = all.filter(q => (!sinif || q.sinif === sinif) && (!ders || q.ders === ders) && q.kazanim);
     const groups = {}; pool.forEach(q => (groups[q.kazanim] ||= []).push(q));
-    const meb = (!ders || ders === 'Kimya') ? (OGRENME_CIKTILARI[sinif] || []).map(o => o.kod) : [];
+    const meb = ders ? (OGRENME_CIKTILARI[sinif] || []).filter(o => o.ders === ders).map(o => o.kod) : [];
     const keys = [...new Set([...Object.keys(groups), ...meb, ...Object.keys(counts).filter(k => counts[k])])].sort((a, b) => a.localeCompare(b, 'tr', { numeric: true }));
-    const sen = (!ders || ders === 'Kimya') && SENARYOLAR[sinif];
+    const sen = ders && SENARYOLAR[sinif]?.[ders];
     if (sen) box.append(h('div.row', { style: { marginBottom: '8px' } }, h('b.small', `MEB ${SENARYO_YILI} senaryosu:`),
-      ...Object.entries(sen).map(([yz, list]) => h('select.inp', { style: { width: 'auto' }, on: { change: e => { if (e.target.value === '') return; for (const k in counts) delete counts[k]; Object.assign(counts, list[+e.target.value].d); draw(); } } }, h('option', { value: '' }, yz), list.map((x, i) => h('option', { value: i }, `${x.ad} (${Object.values(x.d).reduce((a, b) => a + b, 0)} soru)`))))));
+      ...Object.entries(sen).filter(([, list]) => Array.isArray(list)).map(([yz, list]) => h('select.inp', { style: { width: 'auto' }, on: { change: e => { if (e.target.value === '') return; for (const k in counts) delete counts[k]; Object.assign(counts, list[+e.target.value].d); draw(); } } }, h('option', { value: '' }, yz), list.map((x, i) => h('option', { value: i }, `${x.ad} (${Object.values(x.d).reduce((a, b) => a + b, 0)} soru)`))))));
     if (!keys.length) { box.append(h('p.muted', 'Bu sınıf/derste kazanımla etiketli soru yok.')); return; }
     const total = Object.values(counts).reduce((a, b) => a + (b || 0), 0);
     box.append(h('table.table', h('tr', h('th', 'Öğrenme çıktısı'), h('th', 'Havuzda'), h('th', 'Soru sayısı')), keys.map(k => { const n = groups[k]?.length || 0; return h('tr', h('td', h('b', k), h('div.small.muted', ciktiMetni(k) || groups[k]?.[0]?.konu || '')), h('td', { style: { color: (counts[k] || 0) > n ? 'var(--bad)' : null } }, String(n)), h('td', h('input.inp', { type: 'number', min: 0, value: counts[k] || 0, style: { width: '70px' }, on: { input: e => { counts[k] = +e.target.value; } } }))); }), h('tr', h('td', h('b', 'Toplam')), h('td'), h('td', h('b', String(total))))));
   };
   const sinifs = [...new Set([...all.map(q => q.sinif).filter(Boolean), ...Object.keys(OGRENME_CIKTILARI)])].sort((a, b) => a.localeCompare(b, 'tr', { numeric: true }));
-  const derss = [...new Set(all.map(q => q.ders).filter(Boolean))];
+  const derss = [...new Set([...all.map(q => q.ders).filter(Boolean), ...Object.values(SENARYOLAR).flatMap(x => Object.keys(x))])].sort((a, b) => a.localeCompare(b, 'tr'));
   let m;
   m = modal('Dağılım tablosuyla sınav kur', h('div', { style: { display: 'grid', gap: '10px' } }, h('p.small.muted', 'Öğrenme çıktısı başına kaç soru istediğinizi yazın; sorular havuzdan rastgele seçilir.'),
     h('div.row', h('select.inp', { style: { width: 'auto' }, on: { change: e => { sinif = e.target.value; draw(); } } }, h('option', { value: '' }, 'Sınıf'), sinifs.map(s => h('option', { value: s }, s))), h('select.inp', { style: { width: 'auto' }, on: { change: e => { ders = e.target.value; draw(); } } }, h('option', { value: '' }, 'Ders'), derss.map(s => h('option', { value: s }, s)))), box),
