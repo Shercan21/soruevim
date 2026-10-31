@@ -1,5 +1,5 @@
 /* Soru Evim service worker — uygulama kabuğu önbellekte, veriler IndexedDB'de. */
-const VERSION = 'v2.2.0';
+const VERSION = 'v2.2.1';
 const SHELL = `soruevim-shell-${VERSION}`;
 const RUNTIME = 'soruevim-runtime';
 const SHELL_FILES = [
@@ -18,11 +18,12 @@ const CDN_FILES = [
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(SHELL);
-    await cache.addAll(SHELL_FILES);
+    // HTTP önbelleğini atla: her sürümde dosyaların en yenisi alınsın
+    await cache.addAll(SHELL_FILES.map(u => new Request(u, { cache: 'reload' })));
     // CDN dosyaları en iyi çaba: başarısız olursa kurulum yine tamamlanır
     const rt = await caches.open(RUNTIME);
     await Promise.all(CDN_FILES.map(u => fetch(u, { mode: 'cors' }).then(r => r.ok && rt.put(u, r)).catch(() => {})));
-    if (!self.registration.active) self.skipWaiting(); // ilk kurulumda bekleme
+    self.skipWaiting(); // yeni sürüm beklemeden devreye girsin
   })());
 });
 
@@ -34,7 +35,7 @@ self.addEventListener('activate', event => {
   })());
 });
 
-self.addEventListener('message', e => { if (e.data === 'skipWaiting') self.skipWaiting(); });
+self.addEventListener('message', e => { if (e.data === 'skipWaiting') self.skipWaiting(); if (e.data === 'version') e.source?.postMessage({ version: VERSION }); });
 
 self.addEventListener('fetch', event => {
   const req = event.request;

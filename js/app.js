@@ -74,6 +74,16 @@ const openInp = h('input', { type: 'file', accept: '.soruevim,.json,application/
   } catch { toast('Dosya okunamadı'); }
 } } });
 const themeBtns = h('div.seg', { style: { margin: '4px 8px' } }, [['acik', 'Açık'], ['koyu', 'Koyu'], ['sistem', 'Sistem']].map(([v, l]) => h('button' + (theme === v ? '.on' : ''), { type: 'button', on: { click: e => { theme = v; localStorage.setItem('tema', v); applyTheme(v); [...themeBtns.children].forEach(b => b.classList.toggle('on', b === e.target)); } } }, l)));
+async function forceUpdate() {
+  toast('Güncelleniyor…');
+  try {
+    // Yalnız uygulama dosyalarının önbelleği temizlenir; sorular ve belgeler (IndexedDB) yerinde kalır
+    for (const r of await navigator.serviceWorker?.getRegistrations?.() || []) await r.unregister();
+    for (const k of await caches.keys()) if (k.startsWith('soruevim-')) await caches.delete(k);
+    await Promise.all(['./', './index.html', './sw.js', './css/app.css', './css/paper.css', './js/app.js', './js/db.js', './js/util.js', './js/render.js', './js/design.js', './js/meb.js', ...['home', 'brand', 'pool', 'editor', 'exams', 'imgtools', 'board', 'online', 'optik'].map(v => `./js/views/${v}.js`)].map(u => fetch(u, { cache: 'reload' }).catch(() => { })));
+  } catch { }
+  location.reload();
+}
 const menu = h('details', { style: { position: 'relative' } },
   h('summary.btn.btn-sm', { title: 'Menü — yeni belge, aç, marka kimliği, görünüm' }, '☰'),
   h('div.card.menu-pop',
@@ -82,6 +92,7 @@ const menu = h('details', { style: { position: 'relative' } },
     h('a.btn.btn-sm', { href: '#/marka' }, '🎨 Marka kimliğim'),
     h('a.btn.btn-sm', { href: '#/tahta' }, '🖥 Akıllı tahta'),
     h('button.btn.btn-sm', { on: { click: () => { location.hash = '#/'; setTimeout(startTour, 400); } } }, '🧭 Kısa tur'),
+    h('button.btn.btn-sm', { title: 'Sorularınız ve belgeleriniz silinmez', on: { click: forceUpdate } }, '🔄 Uygulamayı güncelle'),
     h('div.small.muted', { style: { margin: '6px 8px 0' } }, 'Görünüm'), themeBtns), openInp);
 document.addEventListener('click', e => { if (!menu.contains(e.target)) menu.open = false; });
 $('.topbar').insertBefore(menu, $('#installBtn'));
@@ -104,6 +115,11 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       });
       let reloaded = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloaded) { reloaded = true; location.reload(); } });
+      // Uygulama her öne geldiğinde yeni sürüm var mı bak (telefonda kurulu uygulama için)
+      const check = () => reg.update().catch(() => { });
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+      setInterval(check, 30 * 60 * 1000);
+      window.__swReg = reg;
     } catch (e) { console.warn('SW kaydı başarısız', e); }
   });
 }
