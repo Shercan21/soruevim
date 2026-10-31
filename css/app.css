@@ -236,3 +236,33 @@ body{background:radial-gradient(1200px 600px at 100% -10%,color-mix(in srgb,#8b5
 .brand:hover img{transform:rotate(-8deg)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:720px){.topnav{flex-wrap:wrap;overflow:visible;gap:4px}.topnav a{padding:6px 10px;font-size:.88rem}}
+/* Sınıf değerlendirme raporu */
+.rp-h{margin:22px 0 8px;font-size:1.05rem}
+.rp-ozet{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:12px}
+.rp-ozet>div{background:var(--cream-2);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column}
+.rp-ozet b{font-size:1.35rem;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.rp-ozet span{font-size:.8rem;color:var(--muted)}
+.rp-bar{display:flex;align-items:center;gap:8px}
+.rp-bar>div{height:10px;border-radius:6px;flex:none;max-width:120px;min-width:2px;transition:width .6s ease}
+.rp-bar{position:relative}
+.rp-bar>span{font-weight:700;font-size:.85rem}
+.rp-durum{border:1.5px solid;border-radius:999px;padding:1px 8px;font-size:.78rem;font-weight:700;white-space:nowrap}
+.rp-uyari{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:.9rem}
+.rp-iyi{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:.9rem}
+:root[data-theme=dark] .rp-uyari{background:#3b1717;border-color:#7f1d1d;color:#fecaca}
+:root[data-theme=dark] .rp-iyi{background:#123321;border-color:#166534;color:#bbf7d0}
+.rp-isi td,.rp-isi th{padding:5px 7px;font-size:.82rem}
+.rp-soru td,.rp-soru th{padding:5px 7px;font-size:.85rem;text-align:center}
+.rp-soru td:nth-child(2){text-align:left}
+.rp-print{font-family:Arial,sans-serif;color:#111;font-size:10pt}
+.rp-print .row,.rp-print .seg,.rp-print button{display:none!important}
+.rp-print-head{display:flex;align-items:center;gap:12px;border-bottom:3px solid var(--acc);padding-bottom:8px;margin-bottom:8px}
+.rp-print-head img{height:48px}
+.rp-print-head h2{margin:2px 0;color:var(--acc)}
+.rp-print table{width:100%;border-collapse:collapse}
+.rp-print td,.rp-print th{border-bottom:1px solid #ddd;padding:4px 6px;text-align:left}
+.rp-print .rp-ozet b{color:var(--acc);-webkit-text-fill-color:var(--acc)}
+.rp-print *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.rp-print h3{break-after:avoid}
+.rp-print tr{break-inside:avoid}
+.rp-cizgi{width:100%;height:auto;display:block;color:var(--text,#222)}

@@ -196,7 +196,7 @@ export async function importResultCode(code) {
 export async function resultImportView(app, code) {
   let res;
   try { res = await importResultCode(code); } catch { res = { ok: false, msg: 'Sonuç bağlantısı bozuk ya da eksik kopyalanmış.' }; }
-  if (!res.ok) { app.append(h('div.card', h('h2', 'Sonuç alınamadı'), h('p.muted', res.msg), h('a.btn', { href: '#/sinavlar' }, 'Sınavlarım'))); return; }
+  if (!res.ok) { app.append(h('div.card', h('h2', 'Sonuç alınamadı'), h('p.muted', res.msg), h('a.btn', { href: '#/sinavlar' }, 'Sınav ve Karne'))); return; }
   const { ex, rec } = res;
   app.append(h('div.card', { style: { maxWidth: '560px', margin: '20px auto', textAlign: 'center' } },
     h('div.small.muted', ex.title), h('h1', rec.ad + (rec.no ? ' · ' + rec.no : '')),

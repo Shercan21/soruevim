@@ -1,6 +1,7 @@
 // Optik form: yazdırılabilir form + telefon kamerasıyla/fotoğraftan okuma
 import { h, toast, modal, uid, LETTERS, loadImg, readFileAsDataURL, $ } from '../util.js';
 import { db, getBrand } from '../db.js';
+import { ogrenciBagla } from './siniflar.js';
 
 const PW = 210, PH = 297;
 const MARK = 8; // köşe işareti kenarı (mm)
@@ -158,21 +159,24 @@ export function optikReaderModal(ex, score, onDone) {
       const r = await readOptik(await readFileAsDataURL(f), { N, nCh });
       const prev = (await db.all('results')).find(x => r.no && x.no === r.no && x.ad);
       const ad = h('input.inp', { placeholder: 'Adı Soyadı', value: prev?.ad || '' });
+      const sube = h('input.inp', { placeholder: 'Şube', value: sessionStorage.getItem('sonSube') || '', style: { maxWidth: '110px' } });
       const no = h('input.inp', { placeholder: 'No', value: r.no.includes('?') ? '' : r.no.replace(/^0+(?=\d)/, '') });
+      ogrenciBagla(no, ad, sube);
       const ans = h('input.inp', { value: r.answers.map(a => a || '-').join(''), style: { fontFamily: 'monospace', letterSpacing: '2px' } });
       const multi = r.answers.filter(a => a === '*').length;
       box.innerHTML = '';
       box.append(h('div', { style: { display: 'grid', gridTemplateColumns: '180px minmax(0,1fr)', gap: '12px' } },
         h('a', { href: r.preview, target: '_blank' }, h('img', { src: r.preview, style: { width: '100%', borderRadius: '6px', border: '1px solid var(--line)' } })),
         h('div', { style: { display: 'grid', gap: '8px', alignContent: 'start' } },
-          h('div.row', ad, no, r.kit ? h('span.chip', 'Kitapçık ' + r.kit) : null),
+          h('div.row', ad, no, sube, r.kit ? h('span.chip', 'Kitapçık ' + r.kit) : null),
           h('label.fld', h('span', `Okunan cevaplar (${r.answers.filter(a => a && a !== '*').length}/${N}) — gerekirse düzeltin; * = çift işaret, - = boş`), ans),
           multi ? h('p.small', { style: { color: 'var(--bad)' } }, multi + ' soruda birden çok balon dolu; bunlar yanlış sayılır.') : null,
           h('button.btn.btn-primary.btn-sm', { on: { click: async e => {
             if (!ad.value.trim()) { toast('Öğrenci adını yazın'); return; }
             const a = ans.value.toLocaleUpperCase('tr-TR').split('').slice(0, N).map(c => LETTERS.includes(c) ? c : c === '*' ? 'X' : '');
             while (a.length < N) a.push('');
-            await db.put('results', { id: uid(), examId: ex.id, ad: ad.value.trim(), no: no.value.trim(), answers: a, mod: 'optik', kitapcik: r.kit, ...score(ex, a), created: Date.now() });
+            sessionStorage.setItem('sonSube', sube.value.trim());
+            await db.put('results', { id: uid(), examId: ex.id, ad: ad.value.trim(), no: no.value.trim(), sinif: sube.value.trim(), answers: a, mod: 'optik', kitapcik: r.kit, ...score(ex, a), created: Date.now() });
             saved++; e.target.disabled = true; e.target.textContent = '✓ Kaydedildi'; box.style.opacity = '.6';
           } } }, 'Kaydet'))));
     } catch (err) { box.innerHTML = ''; box.append(h('p', { style: { color: 'var(--bad)' } }, f.name + ': ' + err.message)); }

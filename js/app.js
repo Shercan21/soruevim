@@ -26,6 +26,9 @@ const routes = [
   [/^\/zkitap\/([\w-]+)$/, m => lazy('./views/board.js', 'zkitapView')(app, m[1]), 'belgeler'],
   [/^\/online\/(.+)$/, m => lazy('./views/online.js', 'onlineSolveView')(app, m[1]), 'sinavlar'],
   [/^\/sonuc\/(.+)$/, m => lazy('./views/online.js', 'resultImportView')(app, m[1]), 'sinavlar'],
+  [/^\/siniflar$/, () => lazy('./views/siniflar.js', 'siniflarView')(app), 'sinavlar'],
+  [/^\/sinif\/([\w-]+)$/, m => lazy('./views/siniflar.js', 'sinifView')(app, m[1]), 'sinavlar'],
+  [/^\/ogrenci\/([\w-]+)\/(.+)$/, m => lazy('./views/siniflar.js', 'ogrenciView')(app, m[1], decodeURIComponent(m[2])), 'sinavlar'],
 ];
 
 async function route() {
@@ -80,7 +83,7 @@ async function forceUpdate() {
     // Yalnız uygulama dosyalarının önbelleği temizlenir; sorular ve belgeler (IndexedDB) yerinde kalır
     for (const r of await navigator.serviceWorker?.getRegistrations?.() || []) await r.unregister();
     for (const k of await caches.keys()) if (k.startsWith('soruevim-')) await caches.delete(k);
-    await Promise.all(['./', './index.html', './sw.js', './css/app.css', './css/paper.css', './js/app.js', './js/db.js', './js/util.js', './js/render.js', './js/design.js', './js/meb.js', ...['home', 'brand', 'pool', 'editor', 'exams', 'imgtools', 'board', 'online', 'optik'].map(v => `./js/views/${v}.js`)].map(u => fetch(u, { cache: 'reload' }).catch(() => { })));
+    await Promise.all(['./', './index.html', './sw.js', './css/app.css', './css/paper.css', './js/app.js', './js/db.js', './js/util.js', './js/render.js', './js/design.js', './js/meb.js', ...['home', 'brand', 'pool', 'editor', 'exams', 'imgtools', 'board', 'online', 'optik', 'rapor', 'siniflar'].map(v => `./js/views/${v}.js`)].map(u => fetch(u, { cache: 'reload' }).catch(() => { })));
   } catch { }
   location.reload();
 }

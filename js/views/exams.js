@@ -1,6 +1,8 @@
 import { h, toast, modal, confirmBox, uid, LETTERS, fmtDate, download, shuffle, $ } from '../util.js';
 import { db, getBrand } from '../db.js';
 import { KINDS, denemeTuru, rich } from '../render.js';
+import { sinifRaporu } from './rapor.js';
+import { ogrenciBagla } from './siniflar.js';
 
 const snap = q => q ? { id: q.id, type: q.type || 'coktan', text: q.text || '', image: q.image || '', images: q.images, tablo: q.tablo, choices: q.choices || [], choiceImgs: q.choiceImgs, answer: q.answer || '', konu: q.konu || '', kazanim: q.kazanim || '', cozum: q.cozum || '' } : { id: uid(), text: '(silinmiş soru)', image: '', choices: [], answer: '' };
 
@@ -59,7 +61,7 @@ export async function examsView(app) {
   };
 
   app.append(
-    h('div.row', h('h1', { style: { margin: 0 } }, 'Sınav ve Karne'), h('span.spacer'),
+    h('div.row', h('h1', { style: { margin: 0 } }, 'Sınav ve Karne'), h('span.spacer'), h('a.btn', { href: '#/siniflar' }, '👥 Sınıflarım'),
       h('button.btn', { on: { click: keyOnly } }, 'Kitapçık cevap anahtarıyla'),
       h('button.btn.btn-primary', { on: { click: fromDoc } }, '+ Belgeden sınav')),
     h('p.muted', 'Sınavı bağlantıyla telefonlara gönderin ya da kâğıtla yapıp optikten okutun; sonuçlar ve karneler burada toplanır.'),
@@ -83,6 +85,8 @@ export async function examDetailView(app, id) {
   const entry = () => {
     const name = h('input.inp', { placeholder: 'Adı Soyadı' });
     const no = h('input.inp', { placeholder: 'Numara' });
+    const sube = h('input.inp', { placeholder: 'Şube (ör. 9-A)', value: sessionStorage.getItem('sonSube') || '' });
+    ogrenciBagla(no, name, sube);
     const ans = h('textarea.inp', { rows: 3, placeholder: `${N} cevap. Boş için - ya da boşluk yazın. Ör. AB-DC…` });
     const info = h('p.small.muted', '');
     ans.addEventListener('input', () => { info.textContent = parse(ans.value).filter((x, i) => i < N).length + ' / ' + N + ' cevap'; });
@@ -91,11 +95,12 @@ export async function examDetailView(app, id) {
     const saveOne = async (again) => {
       if (!name.value.trim()) { toast('Öğrenci adı gerekli'); return; }
       const a = parse(ans.value).slice(0, N); while (a.length < N) a.push('');
-      await db.put('results', { id: uid(), examId: id, ad: name.value.trim(), no: no.value.trim(), answers: a, mod: 'kağıt', ...score(ex, a), created: Date.now() });
+      sessionStorage.setItem('sonSube', sube.value.trim());
+      await db.put('results', { id: uid(), examId: id, ad: name.value.trim(), no: no.value.trim(), sinif: sube.value.trim(), answers: a, mod: 'kağıt', ...score(ex, a), created: Date.now() });
       toast(name.value + ' kaydedildi');
       if (again) { name.value = ''; no.value = ''; ans.value = ''; info.textContent = ''; name.focus(); } else { m.close(); location.reload(); }
     };
-    m = modal('Kâğıt sınav — cevap girişi', h('div', { style: { display: 'grid', gap: '10px' } }, h('div.row', name, no), ans, info),
+    m = modal('Kâğıt sınav — cevap girişi', h('div', { style: { display: 'grid', gap: '10px' } }, h('div.row', name, no, sube), ans, info),
       { actions: [h('button.btn', { on: { click: () => { m.close(); location.reload(); } } }, 'Bitir'), h('button.btn', { on: { click: () => saveOne(true) } }, 'Kaydet ve sıradaki'), h('button.btn.btn-primary', { on: { click: () => saveOne(false) } }, 'Kaydet')] });
     setTimeout(() => name.focus(), 50);
   };
@@ -112,8 +117,8 @@ export async function examDetailView(app, id) {
   const hardest = qStats.filter(s => s.k).sort((a, b) => a.rate - b.rate).slice(0, 5);
 
   const csv = () => {
-    const rows = [['Sıra', 'Ad Soyad', 'No', 'Doğru', 'Yanlış', 'Boş', 'Net', 'Puan', 'Mod', ...key.map((_, i) => 'S' + (i + 1))]];
-    results.forEach((r, i) => rows.push([i + 1, r.ad, r.no, r.d, r.y, r.b, String(r.net).replace('.', ','), String(r.puan).replace('.', ','), r.mod, ...r.answers]));
+    const rows = [['Sıra', 'Ad Soyad', 'No', 'Şube', 'Doğru', 'Yanlış', 'Boş', 'Net', 'Puan', 'Mod', ...key.map((_, i) => 'S' + (i + 1))]];
+    results.forEach((r, i) => rows.push([i + 1, r.ad, r.no, r.sinif || '', r.d, r.y, r.b, String(r.net).replace('.', ','), String(r.puan).replace('.', ','), r.mod, ...r.answers]));
     const text = '﻿' + rows.map(r => r.map(c => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(';')).join('\r\n');
     download(new Blob([text], { type: 'text/csv;charset=utf-8' }), (ex.title || 'sinav') + '-sonuclar.csv');
   };
@@ -136,14 +141,12 @@ export async function examDetailView(app, id) {
     results.length > 1 ? h('div.card', { style: { marginTop: '14px' } }, h('h3', 'Puan dağılımı'), distChart(results)) : null,
     h('div.card', { style: { marginTop: '14px', overflowX: 'auto' } },
       h('div.row', h('h3', { style: { margin: 0 } }, 'Sonuçlar'), h('span.spacer'), results.length ? h('button.btn.btn-sm', { on: { click: () => printAllKarne(ex, results, qStats) } }, '🖨 Tüm karneler') : null, results.length ? h('button.btn.btn-sm', { on: { click: csv } }, 'Excel\'e aktar (CSV)') : null),
-      results.length ? h('table.table', h('tr', ['#', 'Ad Soyad', 'No', 'D', 'Y', 'B', 'Net', 'Puan', 'Mod', ''].map(t => h('th', t))),
-        results.map((r, i) => h('tr', h('td', String(i + 1)), h('td', r.ad), h('td', r.no || ''), h('td', String(r.d)), h('td', String(r.y)), h('td', String(r.b)), h('td', String(r.net)), h('td', h('b', String(r.puan))), h('td.small.muted', r.mod),
+      results.length ? h('table.table', h('tr', ['#', 'Ad Soyad', 'No', 'Şube', 'D', 'Y', 'B', 'Net', 'Puan', 'Mod', ''].map(t => h('th', t))),
+        results.map((r, i) => h('tr', h('td', String(i + 1)), h('td', r.ad), h('td', r.no || ''), h('td', r.sinif || ''), h('td', String(r.d)), h('td', String(r.y)), h('td', String(r.b)), h('td', String(r.net)), h('td', h('b', String(r.puan))), h('td.small.muted', r.mod),
           h('td', h('button.btn.btn-sm', { on: { click: () => karne(ex, r, results, qStats) } }, 'Karne'), ' ',
             h('button.icon-btn', { title: 'Sil', on: { click: async () => { if (await confirmBox(r.ad + ' sonucu silinsin mi?', 'Sil')) { await db.del('results', r.id); location.reload(); } } } }, '✕'))))) :
         h('p.muted', 'Henüz sonuç yok.')),
-    results.length ? h('div.card', { style: { marginTop: '14px' } }, h('h3', 'Sınıf raporu — en zor sorular'),
-      h('table.table', h('tr', h('th', 'Soru'), h('th', 'Cevap'), h('th', 'Doğru oranı'), h('th', 'En çok işaretlenen yanlış')),
-        hardest.map(s => h('tr', h('td', String(s.i + 1)), h('td', s.k), h('td', '%' + Math.round(s.rate * 100)), h('td', s.topWrong || '—'))))) : null,
+    results.length ? sinifRaporu(ex, results) : null,
     h('div.row', { style: { marginTop: '14px' } }, h('span.spacer'), h('button.btn.btn-sm.btn-danger', { on: { click: async () => {
       if (!await confirmBox('Sınav ve bütün sonuçları silinsin mi?', 'Sil')) return;
       for (const r of results) await db.del('results', r.id);

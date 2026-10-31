@@ -45,6 +45,7 @@ export const db = {
     const out = { app: 'soruevim', version: 1, exportedAt: new Date().toISOString() };
     for (const s of STORES.filter(x => x !== 'kv' && x !== 'files')) out[s] = await db.all(s);
     out.brand = await db.kvGet('brand');
+    out.siniflar = await db.kvGet('siniflar');
     return out;
   },
   async importAll(data, { replace = false } = {}) {
@@ -54,6 +55,7 @@ export const db = {
       for (const item of data[s] || []) await db.put(s, item);
     }
     if (data.brand) await db.kvSet('brand', data.brand);
+    if (data.siniflar) await db.kvSet('siniflar', data.siniflar);
   },
   async persist() {
     try { if (navigator.storage?.persist) return await navigator.storage.persist(); } catch { }
