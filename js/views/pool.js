@@ -178,11 +178,10 @@ function createFrom(ids) {
   let m;
   const opt = (kind, label, desc) => h('button.btn', { style: { justifyContent: 'flex-start', flexDirection: 'column', alignItems: 'flex-start' }, on: { click: async () => {
     m.close();
-    if (kind === 'tahta') { sessionStorage.setItem('tahtaIds', JSON.stringify(ids)); location.hash = '#/tahta'; return; }
     sessionStorage.setItem('yeniQids', JSON.stringify(ids)); location.hash = '#/yeni/' + kind;
   } } }, h('b', label), h('span.small.muted', desc));
   m = modal(ids.length + ' seçili soruyla oluştur', h('div', { style: { display: 'grid', gap: '8px' } },
-    opt('tahta', 'Akıllı Tahta', 'Ekranda tek tek çözdür'), opt('test', 'Tarama Testi', 'İki sütunlu düzen'), opt('yazili', 'Dönem Yazılısı', 'Puanlı, tek sütun'), opt('deneme', 'Deneme Kitapçığı', 'Genel ya da branş'), opt('foy', 'Konu Anlatımı', 'Sorular alıştırma olur'), opt('banka', 'Soru Kitabı', 'Çok sayfalı derleme')));
+    opt('test', 'Tarama Testi', 'İki sütunlu düzen'), opt('yazili', 'Dönem Yazılısı', 'Puanlı, tek sütun'), opt('deneme', 'Deneme Kitapçığı', 'Genel ya da branş'), opt('foy', 'Konu Anlatımı', 'Sorular alıştırma olur'), opt('banka', 'Soru Kitabı', 'Çok sayfalı derleme')));
 }
 
 // ---------- Hazır bankalar ----------

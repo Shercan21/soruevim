@@ -1,10 +1,9 @@
-import { $, $$, h, toast, readFileAsText } from './util.js';
+import { $, $$, h, toast, readFileAsText, confirmBox } from './util.js';
 import { db } from './db.js';
 import { homeView, docsView, startTour } from './views/home.js';
 import { brandView } from './views/brand.js';
 import { poolView } from './views/pool.js';
 import { editorView, introView } from './views/editor.js';
-import { examsView, solveView, examDetailView } from './views/exams.js';
 
 const app = $('#app');
 let cleanup = null;
@@ -19,16 +18,6 @@ const routes = [
   [/^\/havuz$/, () => poolView(app), 'havuz'],
   [/^\/yeni\/(foy|test|yazili|deneme|banka)$/, m => introView(app, m[1], { qids: takeQids() }), 'home'],
   [/^\/belge\/([\w-]+)$/, m => editorView(app, { id: m[1] }), 'belgeler'],
-  [/^\/sinavlar$/, () => examsView(app), 'sinavlar'],
-  [/^\/sinav\/([\w-]+)$/, m => examDetailView(app, m[1]), 'sinavlar'],
-  [/^\/coz\/([\w-]+)$/, m => solveView(app, m[1]), 'sinavlar'],
-  [/^\/tahta$/, () => lazy('./views/board.js', 'boardView')(app), 'havuz'],
-  [/^\/zkitap\/([\w-]+)$/, m => lazy('./views/board.js', 'zkitapView')(app, m[1]), 'belgeler'],
-  [/^\/online\/(.+)$/, m => lazy('./views/online.js', 'onlineSolveView')(app, m[1]), 'sinavlar'],
-  [/^\/sonuc\/(.+)$/, m => lazy('./views/online.js', 'resultImportView')(app, m[1]), 'sinavlar'],
-  [/^\/siniflar$/, () => lazy('./views/siniflar.js', 'siniflarView')(app), 'sinavlar'],
-  [/^\/sinif\/([\w-]+)$/, m => lazy('./views/siniflar.js', 'sinifView')(app, m[1]), 'sinavlar'],
-  [/^\/ogrenci\/([\w-]+)\/(.+)$/, m => lazy('./views/siniflar.js', 'ogrenciView')(app, m[1], decodeURIComponent(m[2])), 'sinavlar'],
 ];
 
 async function route() {
@@ -51,6 +40,21 @@ async function route() {
 }
 window.addEventListener('hashchange', route);
 route();
+
+// Tek seferlik temizlik: kimya dışındaki kayıtlı soruları (onayla) sil
+(async () => {
+  try {
+    if (await db.kvGet('temizlik-kimya-v1')) return;
+    const kimyaDisi = (await db.all('questions')).filter(q => q.ders && q.ders.toLocaleLowerCase('tr-TR').trim() !== 'kimya');
+    if (!kimyaDisi.length) { await db.kvSet('temizlik-kimya-v1', Date.now()); return; }
+    const dersler = [...new Set(kimyaDisi.map(q => q.ders))].join(', ');
+    await new Promise(r => setTimeout(r, 1200));
+    if (!await confirmBox(`Soru deposunda kimya dışında ${kimyaDisi.length} soru var (${dersler}). Bunlar kalıcı olarak silinsin mi? Kimya soruları ve belgeleriniz etkilenmez.`, 'Sil')) { await db.kvSet('temizlik-kimya-v1', 'vazgecildi'); return; }
+    for (const q of kimyaDisi) await db.del('questions', q.id);
+    await db.kvSet('temizlik-kimya-v1', Date.now());
+    toast(kimyaDisi.length + ' soru silindi'); route();
+  } catch { }
+})();
 
 // ---------- Görünüm (açık / koyu / sistem) ----------
 const applyTheme = t => {
@@ -83,7 +87,7 @@ async function forceUpdate() {
     // Yalnız uygulama dosyalarının önbelleği temizlenir; sorular ve belgeler (IndexedDB) yerinde kalır
     for (const r of await navigator.serviceWorker?.getRegistrations?.() || []) await r.unregister();
     for (const k of await caches.keys()) if (k.startsWith('soruevim-')) await caches.delete(k);
-    await Promise.all(['./', './index.html', './sw.js', './css/app.css', './css/paper.css', './js/app.js', './js/db.js', './js/util.js', './js/render.js', './js/design.js', './js/meb.js', ...['home', 'brand', 'pool', 'editor', 'exams', 'imgtools', 'board', 'online', 'optik', 'rapor', 'siniflar'].map(v => `./js/views/${v}.js`)].map(u => fetch(u, { cache: 'reload' }).catch(() => { })));
+    await Promise.all(['./', './index.html', './sw.js', './css/app.css', './css/paper.css', './js/app.js', './js/db.js', './js/util.js', './js/render.js', './js/design.js', './js/meb.js', ...['home', 'brand', 'pool', 'editor', 'imgtools', 'export'].map(v => `./js/views/${v}.js`)].map(u => fetch(u, { cache: 'reload' }).catch(() => { })));
   } catch { }
   location.reload();
 }

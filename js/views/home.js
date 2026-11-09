@@ -25,9 +25,7 @@ export async function homeView(app) {
     h('div.grid.grid-2', { style: { marginTop: '14px' } },
       kindCard('test'), kindCard('yazili'), kindCard('deneme'), kindCard('foy'), kindCard('banka', 'ÇOK SAYFA')),
     h('div.grid', { style: { marginTop: '14px' } },
-      h('a.card.kind-card', { href: '#/havuz', 'data-tour': 'havuz' }, ico('havuz'), h('div', h('h3', 'Soru Deposu', h('span.tag', qs.length + ' SORU')), h('p', 'Kırptığınız ve yazdığınız bütün sorular burada birikir')), h('span.arrow', '→')),
-      h('a.card.kind-card', { href: '#/tahta' }, ico('tahta'), h('div', h('h3', 'Akıllı Tahta'), h('p', 'Soruları sınıfta büyük gösterin, cevabı istediğiniz an açın')), h('span.arrow', '→')),
-      h('a.card.kind-card', { href: '#/sinavlar', 'data-tour': 'sinav' }, ico('sinav'), h('div', h('h3', 'Sınav ve Karne'), h('p', 'Online sınav, optik okuma, sonuçlar ve karneler')), h('span.arrow', '→'))),
+      h('a.card.kind-card', { href: '#/havuz', 'data-tour': 'havuz' }, ico('havuz'), h('div', h('h3', 'Soru Deposu', h('span.tag', qs.length + ' SORU')), h('p', 'Kırptığınız ve yazdığınız bütün sorular burada birikir')), h('span.arrow', '→'))),
     docs.length ? h('div', h('div.eyebrow', 'Son belgeler'),
       h('div.grid.grid-2', docs.sort((a, b) => b.updated - a.updated).slice(0, 4).map(docCard))) : null,
     window.__soruevim ? h('div.row.home-foot', { style: { marginTop: '36px', justifyContent: 'center', gap: '10px' } },
@@ -92,7 +90,6 @@ const TOUR = [
   ['marka', 'Önce kurum kimliğinizi hazırlayın: logo, renk, şablon galerisi. Her dosyada kendiliğinden uygulanır.'],
   ['havuz', 'Soru deposu: hazır kimya bankalarını ekleyin, PDF’ten kırpın ya da kendi sorunuzu yazın.'],
   ['test', 'Ne hazırlayacağınızı seçin; sorular havuzdan gelir, sayfa düzeni A4’e göre kendiliğinden kurulur.'],
-  ['sinav', 'Hazırladığınız sınavı bağlantıyla telefonlara gönderin ya da kâğıtla yapıp optikten okutun; sonuçlar ve karneler burada.'],
 ];
 export function startTour(i = 0) {
   document.querySelectorAll('.tour,.tour-hl').forEach(e => e.classList?.contains('tour') ? e.remove() : e.classList.remove('tour-hl'));

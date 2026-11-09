@@ -4,7 +4,6 @@ import { KINDS, DENEME_TURLERI, BRANSLAR, denemeTuru, renderDoc, defaultAyar, se
 import { HEADERS, TEMPLATES, PAGE_NUMS, Q_NUMS, BODY_FONTS, TITLE_FONTS, FOOTERS, SIZES, PAPERS, ensureFonts, loadKatex } from '../design.js';
 import { pickQuestions, editQuestion, qCard, cropTool, DERSLER } from './pool.js';
 import { SENARYOLAR, SENARYO_YILI, ciktiMetni } from '../meb.js';
-import { createExamFromDoc } from './exams.js';
 
 const FOY_TYPES = { paragraf: 'Paragraf', arabaslik: 'Ara Başlık', baslik: 'Konu Başlığı', not: 'NOT', dikkat: 'DİKKAT', ornek: 'Örnek', alistirma: 'Sıra Sizde', kural: 'KURAL', tanim: 'TANIM', puf: 'PÜF NOKTASI', formul: 'Formül', gorsel: 'Görsel', ayrac: 'Ayraç', bosluk: 'Boşluk', soru: 'Havuzdan soru', sayfa: 'Sayfa sonu' };
 const SINIFLAR = Array.from({ length: 12 }, (_, i) => (i + 1) + '. Sınıf').concat(['Mezun']);
@@ -523,9 +522,8 @@ export async function editorView(app, { id }) {
     h('button.btn.btn-sm', { title: 'Belgeyi temizle', on: { click: async () => { if (!await confirmBox('Bütün içerik silinsin mi? Sorular havuzda kalır.', 'Temizle')) return; if (doc.kind === 'foy') doc.blocks = []; else if (doc.kind === 'deneme') doc.sections.forEach(s => s.qids = []); else doc.items = []; drawContent(); changed(); } } }, '🗑'),
     teacherBtn,
     h('span.spacer'), pageInfo,
-    ['test', 'deneme', 'yazili'].includes(doc.kind) ? h('button.btn.btn-sm', { on: { click: async () => { await db.put('documents', doc); const ex = await createExamFromDoc(doc, qmap); if (ex) location.hash = '#/sinav/' + ex.id; } } }, '📱 Sınav') : null,
     h('button.btn.btn-sm', { title: 'Belgeyi dosyaya kaydet (.soruevim)', on: { click: exportFile } }, '💾 Kaydet'),
-    h('button.btn.btn-sm', { title: 'Z-Kitap, PNG, Word', on: { click: async () => { await db.put('documents', doc); (await import('./board.js')).exportMenu(doc, { teacher, save: () => db.put('documents', doc) }); } } }, '⬇ İndir'),
+    h('button.btn.btn-sm', { title: 'PNG, Word', on: { click: async () => { await db.put('documents', doc); (await import('./export.js')).exportMenu(doc, { teacher, save: () => db.put('documents', doc) }); } } }, '⬇ İndir'),
     h('button.btn.btn-sm.btn-primary', { on: { click: printDoc } }, '🖨 Yazdır / PDF'));
 
   app.append(toolbar, h('div.editor', h('div.editor-side', content, settings,
