@@ -807,7 +807,7 @@ export async function editorView(app, { id }) {
         k !== 'foy' ? chk('Soru başına puan etiketi — “(5 Puan)”', () => a.puanEtiketi, v => a.puanEtiketi = v) : null,
         k !== 'foy' ? chk('Süreç bileşeni etiketini göster (ör. “Bağlam”)', () => a.surecGoster, v => a.surecGoster = v) : null),
       k !== 'foy' ? sec('Künye', false,
-        txt('Okul / kurum adı', a, 'okul', brand.kurum || 'Ör. Atatürk Ortaokulu', 'Boşsa Sayfanız ayarındaki ad basılır.'),
+        txt('Okul / kurum adı', a, 'okul', brand.kurum || 'Ör. Atatürk Ortaokulu', 'Boşsa Tasarım ayarındaki ad basılır.'),
         txt('Sıra no / test adı', a, 'testAdi', '3  ·  Kavrama Testi', `Sayı yazarsanız “3. ${KINDS[k].ek}” olur.`),
         txt('Ders öğretmeni', a, 'ogretmen', brand.ogretmen || ''),
         k === 'yazili' || k === 'deneme' ? h('div.form-grid', txt('Eğitim-öğretim yılı', a, 'yil', '2026-2027'), txt('Dönem', a, 'donem', '1. Dönem'), txt('Tarih', a, 'tarih', '')) : null,
@@ -838,17 +838,17 @@ export async function editorView(app, { id }) {
         txt('Kaynak künyesi', a, 'kaynak', 'Boşsa soruların kaynağı yazılır', 'Cevap anahtarı sayfasına basılır.'),
         h('label.fld', 'Karekod bağlantısı', h('input.inp', { value: a.karekod || '', placeholder: 'https://…', on: { change: e => { a.karekod = e.target.value.trim(); changed(); } } }), h('span.small.muted', { style: { fontWeight: 400 } }, 'Öğrencinin kâğıdında görünmez; yalnız cevap anahtarı sayfasına basılır.'))) : null,
       sec('Sayfa tasarımı', false,
-        h('p.small.muted', { style: { margin: 0 } }, 'Yalnız bu belgeye uygulanır; boş bırakılanlar Sayfanız ayarından gelir.'),
+        h('p.small.muted', { style: { margin: 0 } }, 'Yalnız bu belgeye uygulanır; boş bırakılanlar Tasarım ayarından gelir.'),
         h('div.row', { style: { gap: '14px', flexWrap: 'wrap' } },
-          h('label.fld', 'Ana renk', renkSec((doc.gorunum ||= {}).renk || '', c => { if (c) doc.gorunum.renk = c; else delete doc.gorunum.renk; changed(); }, { bos: 'Sayfanız ayarından', baslik: 'Başlık, numaralar ve şablon bu renkte' })),
-          h('label.fld', 'İkinci renk', renkSec(doc.gorunum.renk2 || '', c => { if (c) doc.gorunum.renk2 = c; else delete doc.gorunum.renk2; changed(); }, { bos: 'Sayfanız ayarından', baslik: 'NOT / DİKKAT kutuları bu renkte' }))),
+          h('label.fld', 'Ana renk', renkSec((doc.gorunum ||= {}).renk || '', c => { if (c) doc.gorunum.renk = c; else delete doc.gorunum.renk; changed(); }, { bos: 'Tasarım ayarından', baslik: 'Başlık, numaralar ve şablon bu renkte' })),
+          h('label.fld', 'İkinci renk', renkSec(doc.gorunum.renk2 || '', c => { if (c) doc.gorunum.renk2 = c; else delete doc.gorunum.renk2; changed(); }, { bos: 'Tasarım ayarından', baslik: 'NOT / DİKKAT kutuları bu renkte' }))),
         ...[['baslik', 'Başlık tasarımı', HEADERS], ['sablon', 'Sayfa şablonu', TEMPLATES], ['soruNo', 'Soru numarası', Q_NUMS], ['sayfaNo', 'Sayfa numarası', PAGE_NUMS], ['govdeFont', 'Gövde yazı tipi', BODY_FONTS], ['baslikFont', 'Başlık yazı tipi', TITLE_FONTS], ['altBilgi', 'Alt bilgi', FOOTERS], ['boyut', 'Yazı boyutu', SIZES]].map(([key, label, opts]) => {
           doc.gorunum ||= {};
-          return h('label.fld', label, h('select.inp', { value: doc.gorunum[key] || '', on: { change: e => { if (e.target.value) doc.gorunum[key] = e.target.value; else delete doc.gorunum[key]; changed(); } } }, h('option', { value: '' }, '— Sayfanız ayarından —'), Object.entries(opts).map(([v, l]) => h('option', { value: v }, typeof l === 'string' ? l : l.ad))));
+          return h('label.fld', label, h('select.inp', { value: doc.gorunum[key] || '', on: { change: e => { if (e.target.value) doc.gorunum[key] = e.target.value; else delete doc.gorunum[key]; changed(); } } }, h('option', { value: '' }, '— Tasarım ayarından —'), Object.entries(opts).map(([v, l]) => h('option', { value: v }, typeof l === 'string' ? l : l.ad))));
         }),
-        h('div.row', h('button.btn.btn-sm', { on: { click: () => { doc.gorunum = {}; drawSettings(); changed(); } } }, 'Tasarımı sıfırla'), h('a.btn.btn-sm', { href: '#/marka' }, 'Sayfanız →'))),
+        h('div.row', h('button.btn.btn-sm', { on: { click: () => { doc.gorunum = {}; drawSettings(); changed(); } } }, 'Tasarımı sıfırla'), h('a.btn.btn-sm', { href: '#/marka' }, 'Tasarım →'))),
       sec('Sayfaya damga', false,
-        (brand.damgalar || []).length ? h('div.row', brand.damgalar.map(d => h('button', { title: 'Seç, sonra sayfada bir yere tıkla', style: { border: '1px solid var(--line)', borderRadius: '8px', background: '#fff', padding: '4px', cursor: 'pointer' }, on: { click: () => { stampMode = d.id; area.style.cursor = 'crosshair'; toast('Sayfada damganın yerine tıklayın'); } } }, h('img', { src: d.img, style: { width: '48px', height: '48px', objectFit: 'contain' } })))) : h('p.small.muted', { style: { margin: 0 } }, 'Henüz damga yok. Sayfanız → Damgalarım’dan oluşturun.'),
+        (brand.damgalar || []).length ? h('div.row', brand.damgalar.map(d => h('button', { title: 'Seç, sonra sayfada bir yere tıkla', style: { border: '1px solid var(--line)', borderRadius: '8px', background: '#fff', padding: '4px', cursor: 'pointer' }, on: { click: () => { stampMode = d.id; area.style.cursor = 'crosshair'; toast('Sayfada damganın yerine tıklayın'); } } }, h('img', { src: d.img, style: { width: '48px', height: '48px', objectFit: 'contain' } })))) : h('p.small.muted', { style: { margin: 0 } }, 'Henüz damga yok. Tasarım → Damgalarım’dan oluşturun.'),
         h('span.small.muted', 'Basılan damgayı sürükleyerek taşıyın; çift tıklayınca silinir.')),
       sec('Kayıtlı ayarlar', false, ...templatesUI()));
     [...settings.childNodes].forEach(n => { if (n.nodeType === 3 && n.textContent === "null") n.remove(); });

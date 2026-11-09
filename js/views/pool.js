@@ -325,7 +325,7 @@ function bulkAnswers(ids, all, onDone) {
 
 async function bulkStamp(ids, all, onDone) {
   const b = await getBrand();
-  if (!(b.damgalar || []).length) { toast('Önce Sayfanız → Mühürlerim’den mühür oluşturun'); return; }
+  if (!(b.damgalar || []).length) { toast('Önce Tasarım → Mühürlerim’den mühür oluşturun'); return; }
   let m;
   m = modal('Seçili sorulara damga bas', h('div.row', [...b.damgalar.map(d => h('button', { style: { border: '1px solid var(--line)', borderRadius: '8px', background: '#fff', padding: '6px', cursor: 'pointer' }, on: { click: async () => { for (const id of ids) { const q = all.find(x => x.id === id); q.damga = d.id; await db.put('questions', q); } m.close(); toast('Damga basıldı'); onDone(); } } }, h('img', { src: d.img, style: { width: '64px' } }))),
     h('button.btn', { on: { click: async () => { for (const id of ids) { const q = all.find(x => x.id === id); delete q.damga; await db.put('questions', q); } m.close(); onDone(); } } }, 'Damgayı kaldır')]));

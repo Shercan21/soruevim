@@ -96,7 +96,7 @@ function countOf(d) {
 // ---------- Tanıtım turu (sayfalar arasında gezer) ----------
 const TOUR = [
   { yol: '#/', baslik: 'Soru Evim’e hoş geldiniz 👋', metin: 'Bu kısa turda uygulamanın bütün bölümlerini tek tek göstereceğim. İstediğiniz an “Kapat” diyebilir, sonra ana sayfanın altındaki “🧭 Tanıtım turu” ile yeniden başlatabilirsiniz.' },
-  { yol: '#/', sec: '[data-tour="marka"]', baslik: '1. Sayfanızı tasarlayın', metin: 'İlk iş burası. Okulunuzun adı, logonuz, renginiz ve sayfa şablonunuz bir kez ayarlanır; hazırladığınız her test, yazılı ve föyde kendiliğinden kullanılır.' },
+  { yol: '#/', sec: '[data-tour="marka"]', baslik: '1. Sayfanızı tasarlayın', metin: 'İlk iş burası (üst menüde “Tasarım”). Okulunuzun adı, logonuz, renginiz ve sayfa şablonunuz bir kez ayarlanır; hazırladığınız her test, yazılı ve föyde kendiliğinden kullanılır.' },
   { yol: '#/', sec: '[data-tour="test"]', baslik: 'Test', metin: 'Tek bir kazanım ya da alt çıktı için çoktan seçmeli test. Kolay/orta/zor yüzdesini verirsiniz, sorular depodan otomatik gelir ya da kendiniz seçersiniz.' },
   { yol: '#/', sec: '[data-tour="tarama"]', baslik: 'Tarama testi', metin: 'Birden fazla kazanımı birlikte yoklayan test. Kazanımları işaretlersiniz, sorular kazanımlara dengeli dağıtılır.' },
   { yol: '#/', sec: '[data-tour="yazili"]', baslik: 'Dönem yazılısı', metin: 'Dönem ve sınavı seçersiniz; MEB senaryosu hazır gelir. Kazanım, soru sayısı, puan ve zorluğu değiştirebilir, kendi senaryonuz olarak saklayabilirsiniz. Sona cevap anahtarı ve puanlama rehberi eklenir.' },
@@ -107,7 +107,7 @@ const TOUR = [
   { yol: '#/', sec: '[data-tour="bulut"]', baslik: 'Google Drive ile eşitleme', metin: 'İsteğe bağlı. Bağlanırsanız sorularınız ve belgeleriniz kendi Drive’ınızda saklanır; telefon ve bilgisayarda aynı depoyu kullanırsınız. Bağlanmazsanız her şey yalnızca bu cihazda kalır.' },
   { yol: '#/', sec: '[data-tour="alt"]', baslik: 'Alt düğmeler', metin: 'Açık/koyu tema, dosyadan belge açma, uygulamayı güncelleme ve bu turu yeniden başlatma burada. Branşınızı da hemen üstünden değiştirebilirsiniz.' },
   { yol: '#/', sec: '#iletisimBtn', baslik: 'Bize yazın', metin: 'Bir hata gördünüz ya da bir özellik mi istiyorsunuz? Buradan yazın; mesajınız doğrudan geliştiriciye ulaşır.' },
-  { yol: '#/marka', sec: '[data-tour="sablon"]', baslik: 'Şablon Galerisi', metin: 'Onlarca hazır sayfa tasarımı. Birine tıklayın, sağdaki örnek kâğıt hemen değişir. Beğenmezseniz “Geri al”.' },
+  { yol: '#/marka', sec: '[data-tour="sablon"]', baslik: 'Tasarım · Şablon Galerisi', metin: 'Onlarca hazır sayfa tasarımı. Birine tıklayın, sağdaki örnek kâğıt hemen değişir. Beğenmezseniz “Geri al”.' },
   { yol: '#/marka', sec: '[data-tour="renk"]', baslik: 'Renk paleti', metin: 'Seçtiğiniz şablonun rengini buradan değiştirin. Ana renk başlığı ve numaraları, ikinci renk NOT/DİKKAT kutularını boyar.' },
   { yol: '#/marka', sec: '[data-tour="ozel"]', baslik: 'Özel Ayarlar', metin: 'Okul adı, öğretmen adı, logo, imza, damga, başlık ve numara tasarımlarını tek tek ayarlamak için burası.' },
   { yol: '#/havuz', sec: '[data-tour="kirp"]', baslik: 'PDF / görselden kırp', metin: 'Kitabın ya da sınavın PDF’ini açın, soruları fareyle çerçeveleyip depoya ekleyin. Ekran görüntüsünü Ctrl+V ile de yapıştırabilirsiniz.' },
