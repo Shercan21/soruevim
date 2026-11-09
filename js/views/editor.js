@@ -154,7 +154,7 @@ async function denemeDoldurCard(getTur) {
       if (st.mod === 'elle') {
         const ids = new Set(pool.map(q => q.id));
         if (!ids.size) continue;
-        const r = await pickQuestions({ title: `${sec.name} — ${sec.hedef ? sec.hedef + ' soru seçin' : 'soru seçin'}`, filter: q => ids.has(q.id), preset: st.zor ? { zorluk: st.zor } : {} });
+        const r = await pickQuestions({ title: `${sec.name} — ${sec.hedef ? sec.hedef + ' soru seçin' : 'soru seçin'}`, filter: q => ids.has(q.id), preset: st.zor ? { zorluk: st.zor } : {}, max: sec.hedef || 0, tekKazanim: true });
         if (r === null) return false;
         sec.qids = r; continue;
       }

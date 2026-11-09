@@ -395,7 +395,7 @@ export async function editQuestion(q, onSaved, { preset = {}, list = null } = {}
 }
 
 // ---------- Havuzdan seçici ----------
-export async function pickQuestions({ exclude = [], title = 'Depodan soru seç', filter, preset = {} } = {}) {
+export async function pickQuestions({ exclude = [], title = 'Depodan soru seç', filter, preset = {}, max = 0, tekKazanim = false } = {}) {
   let all = (await db.all('questions')).sort((a, b) => b.created - a.created);
   if (filter) all = all.filter(filter);
   const ex = new Set(exclude);
@@ -404,13 +404,31 @@ export async function pickQuestions({ exclude = [], title = 'Depodan soru seç',
   let lim = 80;
   return new Promise(resolve => {
     const list = h('div.q-list', { style: { maxHeight: '56vh', overflow: 'auto' } });
-    const cnt = h('b', '0');
+    const cnt = h('b', max ? '0 / ' + max : '0');
+    const byId = Object.fromEntries(all.map(q => [q.id, q]));
+    const kzOf = q => q.kazanim || ('konu:' + (q.konu || q.id));
+    const kural = !!(max || tekKazanim);
+    const pasifMi = q => {
+      if (chosen.includes(q.id)) return '';
+      if (max && chosen.length >= max) return `En çok ${max} soru seçebilirsiniz`;
+      if (tekKazanim && chosen.some(id => kzOf(byId[id]) === kzOf(q))) return 'Bu kazanımdan zaten bir soru seçtiniz';
+      return '';
+    };
     const render = () => {
+      const top = list.scrollTop;
       list.innerHTML = '';
+      setTimeout(() => { list.scrollTop = top; });
       const rows = applyFilter(all, st).filter(q => !ex.has(q.id));
       if (!rows.length) list.append(h('div.empty', all.length ? 'Uygun soru yok. Üstteki süzgeçleri gevşetin.' : 'Havuz boş. Önce Soru Deposu’na soru ekleyin ya da hazır bankaları yükleyin.'));
       for (const q of rows.slice(0, lim)) {
-        const el = qCard(q, { selected: chosen.includes(q.id), onClick: () => { const i = chosen.indexOf(q.id); i < 0 ? chosen.push(q.id) : chosen.splice(i, 1); el.classList.toggle('selected'); cnt.textContent = chosen.length; } });
+        const neden = kural ? pasifMi(q) : '';
+        const el = qCard(q, { selected: chosen.includes(q.id), onClick: () => {
+          if (neden) { toast(neden); return; }
+          const i = chosen.indexOf(q.id); i < 0 ? chosen.push(q.id) : chosen.splice(i, 1);
+          cnt.textContent = max ? chosen.length + ' / ' + max : chosen.length;
+          if (kural) render(); else el.classList.toggle('selected');
+        } });
+        if (neden) { el.classList.add('pasif'); el.title = neden; }
         list.append(el);
       }
       if (rows.length > lim) list.append(h('button.btn', { on: { click: () => { lim += 120; render(); } } }, `Daha fazla (${rows.length - lim})`));
@@ -419,7 +437,8 @@ export async function pickQuestions({ exclude = [], title = 'Depodan soru seç',
     const finish = v => { if (done) return; done = true; m.close(); resolve(v); };
     const m = modal(title, h('div',
       filterBar(all, s => { st = s; render(); }, preset),
-      h('div.row', { style: { marginBottom: '8px' } },
+      kural ? h('p.small.muted', { style: { margin: '0 0 8px' } }, [max ? `En çok ${max} soru seçebilirsiniz.` : '', tekKazanim ? 'Bir kazanımdan soru seçince aynı kazanımın diğer soruları soluklaşır.' : ''].filter(Boolean).join(' ')) : null,
+      kural ? null : h('div.row', { style: { marginBottom: '8px' } },
         h('button.btn.btn-sm', { on: { click: () => { applyFilter(all, st).filter(q => !ex.has(q.id) && !chosen.includes(q.id)).forEach(q => chosen.push(q.id)); cnt.textContent = chosen.length; render(); } } }, 'Görünenlerin hepsini seç'),
         h('label.row.small', 'Rastgele ', h('input.inp', { type: 'number', min: 1, value: 10, style: { width: '64px' }, id: 'rndN' }), h('button.btn.btn-sm', { on: { click: () => { const n = +document.getElementById('rndN').value || 10; const pool = applyFilter(all, st).filter(q => !ex.has(q.id) && !chosen.includes(q.id)).sort(() => Math.random() - .5).slice(0, n); pool.forEach(q => chosen.push(q.id)); cnt.textContent = chosen.length; render(); } } }, 'seç')),
         h('button.btn.btn-sm.btn-accent', { on: { click: () => { finish(null); cropTool(() => toast('Kırpılan sorular depoya eklendi; tekrar seçiciyi açın.')); } } }, '✂ Yeni kırp')),
