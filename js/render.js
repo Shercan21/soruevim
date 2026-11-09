@@ -426,7 +426,7 @@ export async function renderDoc(host, doc, qmap, brand, opts = {}) {
   const soru = (doc.items?.length || 0) + (doc.sections || []).reduce((t, s) => t + (s.qids?.length || 0), 0);
   if (!['az', 'ikisi'].includes(a.akilli) || n < 2 || soru > 150) return n;
   const base = a.bosluk ?? 10;
-  for (const g of [base * 0.7, base * 0.45, 2].filter(x => x < base - 0.5)) {
+  for (const g of [base * 0.8, base * 0.6].filter(x => x < base - 0.5 && x >= 2)) { // seçilen boşluk en çok %40 daraltılır
     const m = await renderDocOnce(host, { ...doc, ayar: { ...doc.ayar, bosluk: Math.round(g * 2) / 2 } }, qmap, brand, opts);
     if (m < n) { host.dataset.daraltildi = String(Math.round(g * 2) / 2); return m; }
   }
