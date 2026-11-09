@@ -4,15 +4,18 @@ import { rich, KINDS } from '../render.js';
 import { LAYOUTS } from '../design.js';
 import { editImage, trimWhitespace } from './imgtools.js';
 import { OGRENME_CIKTILARI, SENARYOLAR, SENARYO_YILI, ciktiMetni } from '../meb.js';
+import { dersSuz, soruIzinli, dersIzinli, anaDers, ozelKazanimFormu } from '../brans.js';
 
 export const QTYPES = { coktan: 'Çoktan seçmeli', dy: 'Doğru / Yanlış', bosluk: 'Boşluk doldurma', klasik: 'Klasik (açık uçlu)' };
 export const LEVELS = { 1: 'Kolay', 2: 'Orta', 3: 'Zor' };
 export const SINIFLAR = Array.from({ length: 12 }, (_, i) => (i + 1) + '. Sınıf').concat(['Mezun', 'LGS', 'TYT', 'AYT']);
-export const DERSLER = ['Kimya', 'Fizik', 'Biyoloji', 'Matematik', 'Türkçe', 'Türk Dili ve Edebiyatı', 'Tarih', 'Coğrafya', 'Felsefe', 'Din Kültürü ve Ahlak Bilgisi', 'İngilizce', 'Fen Bilimleri', 'Sosyal Bilgiler', 'Hayat Bilgisi', 'T.C. İnkılap Tarihi ve Atatürkçülük', 'Görsel Sanatlar', 'Müzik', 'Kur’an-ı Kerim', 'Peygamberimizin Hayatı'];
+const TUM_DERSLER = ['Kimya', 'Fizik', 'Biyoloji', 'Matematik', 'Türkçe', 'Türk Dili ve Edebiyatı', 'Tarih', 'Coğrafya', 'Felsefe', 'Din Kültürü ve Ahlak Bilgisi', 'İngilizce', 'Fen Bilimleri', 'Sosyal Bilgiler', 'Hayat Bilgisi', 'T.C. İnkılap Tarihi ve Atatürkçülük', 'Görsel Sanatlar', 'Müzik', 'Kur’an-ı Kerim', 'Peygamberimizin Hayatı'];
+export const DERSLER_TUM = TUM_DERSLER;
+export const dersListesi = () => dersSuz(TUM_DERSLER);
 export const HAZIR_PAKETLER = [
-  { id: 'kimya9', ad: '9. Sınıf Kimya Soru Bankası', yazar: 'Hasan', adet: 1396, url: './paketler/kimya9.json' },
-  { id: 'kimya10', ad: '10. Sınıf Kimya Soru Bankası', yazar: 'Hasan', adet: 1094, url: './paketler/kimya10.json' },
-  { id: 'kimya11', ad: '11. Sınıf Kimya Soru Bankası', yazar: 'Hasan', adet: 1358, url: './paketler/kimya11.json' },
+  { id: 'kimya9', ad: '9. Sınıf Kimya Soru Bankası', yazar: 'Hasan', adet: 1396, url: './paketler/kimya9.json', ders: 'Kimya' },
+  { id: 'kimya10', ad: '10. Sınıf Kimya Soru Bankası', yazar: 'Hasan', adet: 1094, url: './paketler/kimya10.json', ders: 'Kimya' },
+  { id: 'kimya11', ad: '11. Sınıf Kimya Soru Bankası', yazar: 'Hasan', adet: 1358, url: './paketler/kimya11.json', ders: 'Kimya' },
 ];
 
 // ---------- Soru kartı ----------
@@ -78,7 +81,7 @@ export function applyFilter(all, st) {
 
 // ---------- Havuz ekranı ----------
 export async function poolView(app) {
-  let all = (await db.all('questions')).sort((a, b) => b.created - a.created);
+  let all = (await db.all('questions')).filter(soruIzinli).sort((a, b) => b.created - a.created);
   let st = {}; const sel = new Set();
   const list = h('div.q-list');
   const count = h('span.muted');
@@ -188,7 +191,8 @@ function createFrom(ids) {
 async function hazirModal(onDone) {
   const have = new Set((await db.all('questions')).map(q => q.hazir).filter(Boolean));
   let m;
-  const rows = HAZIR_PAKETLER.map(p => {
+  const paketler = HAZIR_PAKETLER.filter(p => dersIzinli(p.ders));
+  const rows = paketler.map(p => {
     const st = h('span.small.muted', have.has(p.id) ? '✓ Depoda' : p.adet + ' soru');
     const btn = h('button.btn.btn-sm' + (have.has(p.id) ? '' : '.btn-primary'), { on: { click: async () => {
       btn.disabled = true; st.textContent = 'İndiriliyor…';
@@ -203,7 +207,7 @@ async function hazirModal(onDone) {
     const del = have.has(p.id) ? h('button.btn.btn-sm.btn-ghost.btn-danger', { on: { click: async () => { if (!await confirmBox(p.ad + ' depodan çıkarılsın mı? (Kendi sorularınız etkilenmez)', 'Çıkar')) return; for (const q of await db.all('questions')) if (q.hazir === p.id) await db.del('questions', q.id); m.close(); toast('Çıkarıldı'); onDone?.(); } } }, 'Çıkar') : null;
     return h('div.item-row', { style: { padding: '12px' } }, h('div.ico', { style: { fontSize: '1.6rem' } }, '📘'), h('div', { style: { flex: 1 } }, h('b', p.ad), h('div.small.muted', 'Yazar: ' + p.yazar + ' · Maarif Modeli kazanımlarıyla etiketli, cevaplı ve kısa çözümlü')), st, btn, del);
   });
-  m = modal('Hazır soru bankaları', h('div', { style: { display: 'grid', gap: '8px' } }, h('p.small.muted', 'Sorular sınıf, konu, kazanım, zorluk ve kısa çözümle birlikte deponuza eklenir; düzenleyebilir, belgelerde kullanabilirsiniz. Diğer branşlar yakında.'), ...rows));
+  m = modal('Hazır soru bankaları', h('div', { style: { display: 'grid', gap: '8px' } }, ...(paketler.length ? [] : [h('div.empty', 'Branşınız için henüz hazır soru bankası yok.')]), h('p.small.muted', 'Sorular sınıf, konu, kazanım, zorluk ve kısa çözümle birlikte deponuza eklenir; düzenleyebilir, belgelerde kullanabilirsiniz. Diğer branşlar yakında.'), ...rows));
 }
 
 // ---------- Toplu işlemler ----------
@@ -214,7 +218,7 @@ function bulkTag(ids, onDone) {
   m = modal(`Toplu etiketle (${ids.length} soru)`, h('div', { style: { display: 'grid', gap: '10px' } }, h('p.small.muted', 'Boş bıraktığınız alanlar değişmez.'),
     h('div.form-grid',
       h('label.fld', 'Sınıf', h('select.inp', { on: { change: e => { f.sinif = e.target.value; } } }, h('option', { value: '' }, '— Değiştirme —'), SINIFLAR.map(s => h('option', { value: s }, s)))),
-      h('label.fld', 'Ders', h('select.inp', { on: { change: e => { f.ders = e.target.value; } } }, h('option', { value: '' }, '— Değiştirme —'), DERSLER.map(s => h('option', { value: s }, s)))),
+      h('label.fld', 'Ders', h('select.inp', { on: { change: e => { f.ders = e.target.value; } } }, h('option', { value: '' }, '— Değiştirme —'), dersListesi().map(s => h('option', { value: s }, s)))),
       h('label.fld', 'Tema / ünite', inp('unite', 'Ör. 1.2')),
       h('label.fld', 'Zorluk', h('select.inp', { on: { change: e => { f.zorluk = e.target.value; } } }, h('option', { value: '' }, '— Değiştirme —'), Object.entries(LEVELS).map(([v, l]) => h('option', { value: v }, l))))),
     h('label.fld', 'Öğrenme çıktısı', inp('kazanim', 'Ör. KİM.9.1.3')),
@@ -382,9 +386,13 @@ export async function editQuestion(q, onSaved, { preset = {}, list = null } = {}
       fld('Konu', 'konu', { placeholder: 'Mol kavramı' }),
       h('label.fld', 'Zorluk', h('select.inp', { value: String(d.zorluk || 2), on: { change: e => { d.zorluk = +e.target.value; } } }, Object.entries(LEVELS).map(([v, l]) => h('option', { value: v }, l)))),
       fld('Kitaptaki no', 'kitapNo', { placeholder: 'Ör. 12' })),
-    h('datalist#dersList', DERSLER.map(x => h('option', { value: x }))),
-    fld('Öğrenme çıktısı / kazanım', 'kazanim', { placeholder: 'Ör. KİM.9.1.3 — yazmaya başlayın', list: 'mebOC' }),
-    h('datalist#mebOC', Object.values(OGRENME_CIKTILARI).flat().map(o => h('option', { value: o.kod, label: o.metin }))),
+    h('datalist#dersList', dersListesi().map(x => h('option', { value: x }))),
+    (() => { const f = fld('Öğrenme çıktısı / kazanım', 'kazanim', { placeholder: 'Ör. KİM.9.1.3 — yazmaya başlayın', list: 'mebOC' });
+      f.append(h('button.btn.btn-sm.btn-ghost', { type: 'button', style: { justifySelf: 'start', marginTop: '4px' }, on: { click: async e => { e.preventDefault();
+        const k = await ozelKazanimFormu({ sinif: d.sinif || '9. Sınıf', ders: d.ders || anaDers(), dersler: d.ders ? [d.ders] : dersListesi(), siniflar: SINIFLAR.filter(x => /^\d+\. Sınıf$/.test(x)) });
+        if (k) { d.kazanim = k.kod; if (!d.sinif) d.sinif = k.sinif; if (!d.ders) d.ders = k.ders; f.querySelector('input').value = k.kod; toast('Kazanım eklendi'); } } } }, '+ Listede yok mu? Kendi kazanımını ekle'));
+      return f; })(),
+    h('datalist#mebOC', Object.values(OGRENME_CIKTILARI).flat().filter(o => dersIzinli(o.ders)).map(o => h('option', { value: o.kod, label: o.metin }))),
     h('div.form-grid', fld('Kaynak', 'kaynak', { placeholder: 'Kitap / yayın adı' }), h('label.fld', 'Etiketler', h('input.inp', { value: (d.etiketler || []).join(', '), placeholder: 'Virgülle ayırın', on: { input: e => { d._etiket = e.target.value; } } }))),
     (brand.damgalar || []).length ? h('div.row', h('b.small', 'Damga:'), h('button.btn.btn-sm' + (!d.damga ? '.btn-primary' : ''), { on: { click: e => { delete d.damga; e.target.parentNode.querySelectorAll('button').forEach(b => b.classList.remove('btn-primary')); e.target.classList.add('btn-primary'); } } }, 'Yok'), brand.damgalar.map(s => h('button.btn.btn-sm' + (d.damga === s.id ? '.btn-primary' : ''), { on: { click: e => { d.damga = s.id; e.currentTarget.parentNode.querySelectorAll('button').forEach(b => b.classList.remove('btn-primary')); e.currentTarget.classList.add('btn-primary'); } } }, h('img', { src: s.img, style: { width: '28px', height: '28px' } })))) : null,
     h('label.fld', 'Çözüm ve not (öğretmen sürümünde görünür)', h('textarea.inp', { value: d.cozum || '', rows: 2, on: { input: e => { d.cozum = e.target.value; } } })),
@@ -396,7 +404,7 @@ export async function editQuestion(q, onSaved, { preset = {}, list = null } = {}
 
 // ---------- Havuzdan seçici ----------
 export async function pickQuestions({ exclude = [], title = 'Depodan soru seç', filter, preset = {}, max = 0, tekKazanim = false, kazanimMax = tekKazanim ? 1 : 0 } = {}) {
-  let all = (await db.all('questions')).sort((a, b) => b.created - a.created);
+  let all = (await db.all('questions')).filter(soruIzinli).sort((a, b) => b.created - a.created);
   if (filter) all = all.filter(filter);
   const ex = new Set(exclude);
   const chosen = [];
@@ -685,7 +693,7 @@ export async function cropTool(onDone) {
     h('div.crop-side', { style: { display: 'grid', gap: '10px', alignContent: 'start' } },
       h('b', 'Dosya rafı'), lib,
       h('b', 'Etiketler (sonraki sorulara da uygulanır)'),
-      metaInputs.sinif, metaInputs.ders, metaInputs.konu, h('datalist#dersList2', DERSLER.map(x => h('option', { value: x }))),
+      metaInputs.sinif, metaInputs.ders, metaInputs.konu, h('datalist#dersList2', dersListesi().map(x => h('option', { value: x }))),
       preview,
       h('b', 'Cevap harfine basın:'),
       h('div.ans-keys', LETTERS.map(L => h('button', { on: { click: () => commit(L) } }, L))),

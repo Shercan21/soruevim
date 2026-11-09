@@ -1,4 +1,5 @@
 import { $, $$, h, toast, readFileAsText, confirmBox } from './util.js';
+import { loadBrans, brans, bransSecici, loadOzel } from './brans.js';
 import { db } from './db.js';
 import { homeView, docsView, startTour } from './views/home.js';
 import { brandView } from './views/brand.js';
@@ -39,12 +40,15 @@ async function route() {
   location.hash = '#/';
 }
 window.addEventListener('hashchange', route);
+await loadBrans();
+await loadOzel();
+if (!brans()) await bransSecici({ zorunlu: true });
 route();
 
 // Tek seferlik temizlik: kimya dışındaki kayıtlı soruları (onayla) sil
 (async () => {
   try {
-    if (await db.kvGet('temizlik-kimya-v1')) return;
+    if (await db.kvGet('temizlik-kimya-v1') || brans()?.ad !== 'Kimya') return;
     const kimyaDisi = (await db.all('questions')).filter(q => q.ders && q.ders.toLocaleLowerCase('tr-TR').trim() !== 'kimya');
     if (!kimyaDisi.length) { await db.kvSet('temizlik-kimya-v1', Date.now()); return; }
     const dersler = [...new Set(kimyaDisi.map(q => q.ders))].join(', ');
@@ -87,7 +91,7 @@ async function forceUpdate() {
     // Yalnız uygulama dosyalarının önbelleği temizlenir; sorular ve belgeler (IndexedDB) yerinde kalır
     for (const r of await navigator.serviceWorker?.getRegistrations?.() || []) await r.unregister();
     for (const k of await caches.keys()) if (k.startsWith('soruevim-')) await caches.delete(k);
-    await Promise.all(['./', './index.html', './sw.js', './css/app.css', './css/paper.css', './js/app.js', './js/db.js', './js/util.js', './js/render.js', './js/design.js', './js/meb.js', ...['home', 'brand', 'pool', 'editor', 'imgtools', 'export'].map(v => `./js/views/${v}.js`)].map(u => fetch(u, { cache: 'reload' }).catch(() => { })));
+    await Promise.all(['./', './index.html', './sw.js', './css/app.css', './css/paper.css', './js/app.js', './js/db.js', './js/util.js', './js/render.js', './js/design.js', './js/meb.js', './js/brans.js', ...['home', 'brand', 'pool', 'editor', 'imgtools', 'export'].map(v => `./js/views/${v}.js`)].map(u => fetch(u, { cache: 'reload' }).catch(() => { })));
   } catch { }
   location.reload();
 }

@@ -46,6 +46,8 @@ export const db = {
     for (const s of STORES.filter(x => x !== 'kv' && x !== 'files')) out[s] = await db.all(s);
     out.brand = await db.kvGet('brand');
     out.siniflar = await db.kvGet('siniflar');
+    out.ozelKazanimlar = await db.kvGet('ozelKazanimlar');
+    out.brans = await db.kvGet('brans');
     return out;
   },
   async importAll(data, { replace = false } = {}) {
@@ -56,6 +58,8 @@ export const db = {
     }
     if (data.brand) await db.kvSet('brand', data.brand);
     if (data.siniflar) await db.kvSet('siniflar', data.siniflar);
+    if (data.ozelKazanimlar) await db.kvSet('ozelKazanimlar', data.ozelKazanimlar);
+    if (data.brans) await db.kvSet('brans', data.brans);
   },
   async persist() {
     try { if (navigator.storage?.persist) return await navigator.storage.persist(); } catch { }

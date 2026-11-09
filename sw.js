@@ -1,11 +1,11 @@
 /* Soru Evim service worker — uygulama kabuğu önbellekte, veriler IndexedDB'de. */
-const VERSION = 'v2.7.0';
+const VERSION = 'v2.8.0';
 const SHELL = `soruevim-shell-${VERSION}`;
 const RUNTIME = 'soruevim-runtime';
 const SHELL_FILES = [
   './', './index.html', './manifest.webmanifest',
   './css/app.css', './css/paper.css', './js/design.js',
-  './js/app.js', './js/meb.js', './js/db.js', './js/util.js', './js/render.js',
+  './js/app.js', './js/meb.js', './js/db.js', './js/util.js', './js/render.js', './js/brans.js',
   './js/views/home.js', './js/views/brand.js', './js/views/pool.js', './js/views/editor.js', './js/views/imgtools.js', './js/views/export.js',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png',
 ];

@@ -1,6 +1,7 @@
 import { h, ICONS, fmtDate, confirmBox, toast, download, readFileAsText, modal } from '../util.js';
 import { db, getBrand } from '../db.js';
 import { KINDS, kindInfo } from '../render.js';
+import { brans, bransSecici } from '../brans.js';
 
 const ico = name => h('div.ico', { html: ICONS[name] });
 
@@ -28,7 +29,9 @@ export async function homeView(app) {
       h('a.card.kind-card', { href: '#/havuz', 'data-tour': 'havuz' }, ico('havuz'), h('div', h('h3', 'Soru Deposu', h('span.tag', qs.length + ' SORU')), h('p', 'Kırptığınız ve yazdığınız bütün sorular burada birikir')), h('span.arrow', '→'))),
     docs.length ? h('div', h('div.eyebrow', 'Son belgeler'),
       h('div.grid.grid-2', docs.sort((a, b) => b.updated - a.updated).slice(0, 4).map(docCard))) : null,
-    window.__soruevim ? h('div.row.home-foot', { style: { marginTop: '36px', justifyContent: 'center', gap: '10px' } },
+    h('div.row', { style: { marginTop: '28px', justifyContent: 'center', gap: '8px' } }, h('span.muted', '🎓 Branş: '), h('b', brans()?.ad || '—'),
+      h('button.btn.btn-sm.btn-ghost', { on: { click: async () => { if (await bransSecici()) location.reload(); } } }, 'Değiştir')),
+    window.__soruevim ? h('div.row.home-foot', { style: { marginTop: '12px', justifyContent: 'center', gap: '10px' } },
       window.__soruevim.themeSeg(),
       h('button.btn.btn-sm.btn-ghost', { on: { click: window.__soruevim.openFile } }, '📂 Dosyadan aç'),
       h('button.btn.btn-sm.btn-ghost', { title: 'Sorularınız ve belgeleriniz silinmez', on: { click: window.__soruevim.forceUpdate } }, '🔄 Uygulamayı güncelle'),
