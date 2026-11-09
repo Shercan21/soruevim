@@ -634,10 +634,12 @@ export async function editorView(app, { id }) {
         h('div.row', h('b.small', 'Sütun'), segPick([[1, '1 Sütun'], [2, '2 Sütun']], a.cols || 2, v => { a.cols = v; drawContent(); changed(); }))),
       sec('Sayfa ve yerleşim', true,
         sel('Kâğıt boyutu', a, 'kagit', { A4: 'A4 (210 × 297 mm)', A5: 'A5 (148 × 210 mm)', A3: 'A3 (297 × 420 mm)', Letter: 'Letter (216 × 279 mm)', Legal: 'Legal (216 × 356 mm)' }),
-        k !== 'foy' ? (() => { const out = h('b', ((a.bosluk ?? 10) / 2).toLocaleString('tr-TR') + ' mm'); return h('label.fld', h('span', 'Sorular arası boşluk: ', out), h('input', { type: 'range', min: 2, max: 60, value: a.bosluk ?? 10, on: { input: e => { a.bosluk = +e.target.value; out.textContent = (a.bosluk / 2).toLocaleString('tr-TR') + ' mm'; changed(); } } })); })() : null,
+        k !== 'foy' ? (() => { const cur = a.bosluk ?? 10; const mm = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30]; const vals = [...new Set([...mm.map(x => x * 2), cur])].sort((x, y) => x - y);
+          return h('label.fld', 'Sorular arası boşluk', h('select.inp', { on: { change: e => { a.bosluk = +e.target.value; changed(); } } }, vals.map(v => h('option', { value: v, selected: v === cur }, (v / 2).toLocaleString('tr-TR') + ' mm' + (v === 10 ? ' (varsayılan)' : ''))))); })() : null,
         k !== 'foy' ? sel('Akıllı yerleştirme', a, 'akilli', { ikisi: 'Açık — az sayfa + boşluğu eşit dağıt', esit: 'Yalnızca boşluğu sayfaya eşit dağıt', az: 'Yalnızca daha az sayfa (boşluğu gerekirse daralt)', yok: 'Kapalı — sorular üstten sıkışık dizilir' }) : null,
         k !== 'foy' ? h('p.small.muted', { style: { margin: '-4px 0 0' } }, 'Eşit dağıt: seçtiğiniz boşluk en az boşluk olur; dolu sayfalarda artan yer sorular arasına paylaştırılır. Az sayfa: bir sayfa kazandırıyorsa boşluk en çok %40 daraltılır. Boşluğun tam ayarladığınız gibi kalmasını istiyorsanız “Kapalı” seçin.') : null,
-        range('Yazı ölçeği', a, 'olcek', 70, 140, '%'),
+        (() => { const cur = a.olcek ?? 100; const vals = [...new Set([70, 80, 85, 90, 95, 100, 105, 110, 120, 130, 140, cur])].sort((x, y) => x - y);
+          return h('label.fld', 'Yazı ölçeği', h('select.inp', { on: { change: e => { a.olcek = +e.target.value; changed(); } } }, vals.map(v => h('option', { value: v, selected: v === cur }, '%' + v + (v === 100 ? ' (normal)' : v < 100 ? ' — küçük' : ' — büyük'))))); })(),
         k !== 'foy' ? chk('Soru başına puan etiketi — “(5 Puan)”', () => a.puanEtiketi, v => a.puanEtiketi = v) : null,
         k !== 'foy' ? chk('Süreç bileşeni etiketini göster (ör. “Bağlam”)', () => a.surecGoster, v => a.surecGoster = v) : null),
       k !== 'foy' ? sec('Künye', false,
