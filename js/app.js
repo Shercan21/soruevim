@@ -98,7 +98,7 @@ const openInp = h('input', { type: 'file', accept: '.soruevim,.json,application/
       const r = await paylasimAl(d);
       toast(`${d.kimden ? d.kimden + ' paylaşımı: ' : ''}${r.yeni} yeni soru depoya eklendi` + (r.var ? ` (${r.var} zaten vardı)` : '') + (r.sen ? ` · ${r.sen} senaryo` : ''), 5000);
       route();
-    } else if (d.app === 'soruevim') { if (!await confirmBox('Bu bir tam yedek dosyası. İçe aktarılsın mı? Sorular ve belgeler eklenir; kurum kimliği ve branş ayarı dosyadakiyle değişir.', 'İçe aktar')) return; await db.importAll(d); toast('Yedek içe aktarıldı'); location.reload(); }
+    } else if (d.app === 'soruevim') { if (!await confirmBox('Bu bir tam yedek dosyası. İçe aktarılsın mı? Sorular ve belgeler eklenir; sayfa tasarımı ve branş ayarı dosyadakiyle değişir.', 'İçe aktar')) return; await db.importAll(d); toast('Yedek içe aktarıldı'); location.reload(); }
     else toast('Bu dosya bir Soru Evim belgesi değil');
   } catch { toast('Dosya okunamadı'); }
 } } });

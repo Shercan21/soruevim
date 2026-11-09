@@ -119,7 +119,7 @@ export async function brandView(app, { inModal = false } = {}) {
   }
 
   drawHazir();
-  const side = h('div.editor-side', h('div.card', h('h2', 'Kurum kimliği'), tabs), pane, inModal ? null : h('a.btn.btn-primary', { href: '#/' }, 'Tamam, belge oluşturmaya geç →'));
+  const side = h('div.editor-side', h('div.card', h('h2', 'Sayfanız'), tabs), pane, inModal ? null : h('a.btn.btn-primary', { href: '#/' }, 'Tamam, belge oluşturmaya geç →'));
   app.append(h('div.editor', side, area));
   refresh();
   return () => window.removeEventListener('resize', fitScale);

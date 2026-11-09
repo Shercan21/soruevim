@@ -10,7 +10,7 @@ import { shuffle } from '../util.js';
 const FOY_TYPES = { paragraf: 'Paragraf', arabaslik: 'Ara Başlık', baslik: 'Konu Başlığı', not: 'NOT', dikkat: 'DİKKAT', ornek: 'Örnek', alistirma: 'Şimdi Sen', kural: 'KURAL', tanim: 'TANIM', puf: 'İPUCU', formul: 'Formül', gorsel: 'Görsel', ayrac: 'Ayraç', bosluk: 'Boşluk', soru: 'Depodan soru', sayfa: 'Sayfa sonu' };
 const SINIFLAR = Array.from({ length: 12 }, (_, i) => (i + 1) + '. Sınıf').concat(['Mezun']);
 export const KIMLER = {
-  foy: [['Branş öğretmeni', 'Konuyu kendi anlatım sırasına dizer; not, dikkat ve örnek kutularıyla ders notunu çıkarır.'], ['Özel ders veren', 'Öğrencisine kendi logosu ve iletişim bilgisiyle basılmış föy bırakır.'], ['Kurs ve etüt merkezi', 'Konu konu föy serisi üretir; hepsi aynı marka kimliğinde çıkar.'], ['Zümre', 'Çözümleri gizleyip öğrenci sürümünü, gösterip öğretmen sürümünü aynı belgeden basar.']],
+  foy: [['Branş öğretmeni', 'Konuyu kendi anlatım sırasına dizer; not, dikkat ve örnek kutularıyla ders notunu çıkarır.'], ['Özel ders veren', 'Öğrencisine kendi logosu ve iletişim bilgisiyle basılmış föy bırakır.'], ['Kurs ve etüt merkezi', 'Konu konu föy serisi üretir; hepsi aynı sayfa tasarımında çıkar.'], ['Zümre', 'Çözümleri gizleyip öğrenci sürümünü, gösterip öğretmen sürümünü aynı belgeden basar.']],
   test: [['Branş öğretmeni', 'Ders sonu pekiştirme testi hazırlar; iki sütunlu düzen, anahtar ayrı sayfada.'], ['Zümre', 'Aynı öğrenme çıktısını bütün şubelerde ölçen ortak tarama testi çıkarır.'], ['Kurs ve etüt merkezi', 'Haftalık ödev testi serisini kendi markasıyla basar.'], ['Soru biriktiren', 'Depodaki soruları seçip dakikalar içinde sayfaya dizer.']],
   yazili: [['Branş öğretmeni', 'Dönem yazılısını puan çizelgesi, süre ve veli imzasıyla hazırlar.'], ['Okul idaresi', 'Ortak yazılıyı tek şablondan bütün şubelere verir.'], ['Karma sınav yapan', 'Açık uçlu, boşluk doldurma, doğru-yanlış ve çoktan seçmeliyi aynı kâğıtta toplar.'], ['Fotokopiyle çoğaltan', '“Sade ve Ekonomik” tasarımlar siyah-beyaz baskıda toner yakmaz.']],
   deneme: [['Kurum ve kurs', 'LGS, TYT, AYT ya da genel deneme kitapçığı üretir; bölümlü ve süreli.'], ['Sınav uygulayan', 'A ve B kitapçığını birlikte basar; sorular ve şıklar karışır.'], ['Değerlendiren', 'Optik form ve cevap anahtarı kitapçıkla gelir; net formülü sınav ailesinden.'], ['Rehber öğretmen', 'Deneme sonrası çözümleme için hazır anahtar ve öğrenme çıktısı sayfası.']],
@@ -807,7 +807,7 @@ export async function editorView(app, { id }) {
         k !== 'foy' ? chk('Soru başına puan etiketi — “(5 Puan)”', () => a.puanEtiketi, v => a.puanEtiketi = v) : null,
         k !== 'foy' ? chk('Süreç bileşeni etiketini göster (ör. “Bağlam”)', () => a.surecGoster, v => a.surecGoster = v) : null),
       k !== 'foy' ? sec('Künye', false,
-        txt('Okul / kurum adı', a, 'okul', brand.kurum || 'Ör. Atatürk Ortaokulu', 'Boşsa marka kimliğindeki ad basılır.'),
+        txt('Okul / kurum adı', a, 'okul', brand.kurum || 'Ör. Atatürk Ortaokulu', 'Boşsa Sayfanız ayarındaki ad basılır.'),
         txt('Sıra no / test adı', a, 'testAdi', '3  ·  Kavrama Testi', `Sayı yazarsanız “3. ${KINDS[k].ek}” olur.`),
         txt('Ders öğretmeni', a, 'ogretmen', brand.ogretmen || ''),
         k === 'yazili' || k === 'deneme' ? h('div.form-grid', txt('Eğitim-öğretim yılı', a, 'yil', '2026-2027'), txt('Dönem', a, 'donem', '1. Dönem'), txt('Tarih', a, 'tarih', '')) : null,
@@ -838,17 +838,17 @@ export async function editorView(app, { id }) {
         txt('Kaynak künyesi', a, 'kaynak', 'Boşsa soruların kaynağı yazılır', 'Cevap anahtarı sayfasına basılır.'),
         h('label.fld', 'Karekod bağlantısı', h('input.inp', { value: a.karekod || '', placeholder: 'https://…', on: { change: e => { a.karekod = e.target.value.trim(); changed(); } } }), h('span.small.muted', { style: { fontWeight: 400 } }, 'Öğrencinin kâğıdında görünmez; yalnız cevap anahtarı sayfasına basılır.'))) : null,
       sec('Sayfa tasarımı', false,
-        h('p.small.muted', { style: { margin: 0 } }, 'Yalnız bu belgeye uygulanır; boş bırakılanlar marka kimliğinden gelir.'),
+        h('p.small.muted', { style: { margin: 0 } }, 'Yalnız bu belgeye uygulanır; boş bırakılanlar Sayfanız ayarından gelir.'),
         h('div.row', { style: { gap: '14px', flexWrap: 'wrap' } },
-          h('label.fld', 'Ana renk', renkSec((doc.gorunum ||= {}).renk || '', c => { if (c) doc.gorunum.renk = c; else delete doc.gorunum.renk; changed(); }, { bos: 'Kurum kimliğinden', baslik: 'Başlık, numaralar ve şablon bu renkte' })),
-          h('label.fld', 'İkinci renk', renkSec(doc.gorunum.renk2 || '', c => { if (c) doc.gorunum.renk2 = c; else delete doc.gorunum.renk2; changed(); }, { bos: 'Kurum kimliğinden', baslik: 'NOT / DİKKAT kutuları bu renkte' }))),
+          h('label.fld', 'Ana renk', renkSec((doc.gorunum ||= {}).renk || '', c => { if (c) doc.gorunum.renk = c; else delete doc.gorunum.renk; changed(); }, { bos: 'Sayfanız ayarından', baslik: 'Başlık, numaralar ve şablon bu renkte' })),
+          h('label.fld', 'İkinci renk', renkSec(doc.gorunum.renk2 || '', c => { if (c) doc.gorunum.renk2 = c; else delete doc.gorunum.renk2; changed(); }, { bos: 'Sayfanız ayarından', baslik: 'NOT / DİKKAT kutuları bu renkte' }))),
         ...[['baslik', 'Başlık tasarımı', HEADERS], ['sablon', 'Sayfa şablonu', TEMPLATES], ['soruNo', 'Soru numarası', Q_NUMS], ['sayfaNo', 'Sayfa numarası', PAGE_NUMS], ['govdeFont', 'Gövde yazı tipi', BODY_FONTS], ['baslikFont', 'Başlık yazı tipi', TITLE_FONTS], ['altBilgi', 'Alt bilgi', FOOTERS], ['boyut', 'Yazı boyutu', SIZES]].map(([key, label, opts]) => {
           doc.gorunum ||= {};
-          return h('label.fld', label, h('select.inp', { value: doc.gorunum[key] || '', on: { change: e => { if (e.target.value) doc.gorunum[key] = e.target.value; else delete doc.gorunum[key]; changed(); } } }, h('option', { value: '' }, '— Kurum kimliğinden —'), Object.entries(opts).map(([v, l]) => h('option', { value: v }, typeof l === 'string' ? l : l.ad))));
+          return h('label.fld', label, h('select.inp', { value: doc.gorunum[key] || '', on: { change: e => { if (e.target.value) doc.gorunum[key] = e.target.value; else delete doc.gorunum[key]; changed(); } } }, h('option', { value: '' }, '— Sayfanız ayarından —'), Object.entries(opts).map(([v, l]) => h('option', { value: v }, typeof l === 'string' ? l : l.ad))));
         }),
-        h('div.row', h('button.btn.btn-sm', { on: { click: () => { doc.gorunum = {}; drawSettings(); changed(); } } }, 'Tasarımı sıfırla'), h('a.btn.btn-sm', { href: '#/marka' }, 'Kurum kimliği →'))),
+        h('div.row', h('button.btn.btn-sm', { on: { click: () => { doc.gorunum = {}; drawSettings(); changed(); } } }, 'Tasarımı sıfırla'), h('a.btn.btn-sm', { href: '#/marka' }, 'Sayfanız →'))),
       sec('Sayfaya damga', false,
-        (brand.damgalar || []).length ? h('div.row', brand.damgalar.map(d => h('button', { title: 'Seç, sonra sayfada bir yere tıkla', style: { border: '1px solid var(--line)', borderRadius: '8px', background: '#fff', padding: '4px', cursor: 'pointer' }, on: { click: () => { stampMode = d.id; area.style.cursor = 'crosshair'; toast('Sayfada damganın yerine tıklayın'); } } }, h('img', { src: d.img, style: { width: '48px', height: '48px', objectFit: 'contain' } })))) : h('p.small.muted', { style: { margin: 0 } }, 'Henüz damga yok. Kurum Kimliği → Damgalarım’dan oluşturun.'),
+        (brand.damgalar || []).length ? h('div.row', brand.damgalar.map(d => h('button', { title: 'Seç, sonra sayfada bir yere tıkla', style: { border: '1px solid var(--line)', borderRadius: '8px', background: '#fff', padding: '4px', cursor: 'pointer' }, on: { click: () => { stampMode = d.id; area.style.cursor = 'crosshair'; toast('Sayfada damganın yerine tıklayın'); } } }, h('img', { src: d.img, style: { width: '48px', height: '48px', objectFit: 'contain' } })))) : h('p.small.muted', { style: { margin: 0 } }, 'Henüz damga yok. Sayfanız → Damgalarım’dan oluşturun.'),
         h('span.small.muted', 'Basılan damgayı sürükleyerek taşıyın; çift tıklayınca silinir.')),
       sec('Kayıtlı ayarlar', false, ...templatesUI()));
     [...settings.childNodes].forEach(n => { if (n.nodeType === 3 && n.textContent === "null") n.remove(); });
