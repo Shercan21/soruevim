@@ -64,8 +64,8 @@ export const db = {
 };
 
 export const DEFAULT_BRAND = {
-  kurum: '', ogretmen: '', iletisim: '', logo: '', renk: '#1B4B7F', renk2: '#2E6DB4',
-  soz: 'Başarılar dileriz.', simge: '', filigran: false, metinFiligran: '', damgalar: [], kapakGorsel: '', look: null,
+  kurum: '', ogretmen: '', iletisim: '', logo: '', renk: '#4C3BB5', renk2: '#C2418F',
+  soz: 'İyi çalışmalar.', simge: '', filigran: false, metinFiligran: '', damgalar: [], kapakGorsel: '', look: null,
 };
 export async function getBrand() {
   const b = { ...DEFAULT_BRAND, ...(await db.kvGet('brand') || {}) };

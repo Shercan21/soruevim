@@ -99,7 +99,7 @@ export async function poolView(app) {
       const card = qCard(q, { selected: sel.has(q.id), actions: h('div', { style: { display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' } },
         (q.type || 'coktan') === 'coktan' ? quick : null,
         h('button.btn.btn-sm', { on: { click: () => editQuestion(q, saved => { Object.assign(q, saved); render(); }, { list: r }) } }, 'Düzenle'),
-        h('button.btn.btn-sm.btn-danger', { on: { click: async () => { if (!await confirmBox('Bu soru havuzdan silinsin mi?', 'Sil')) return; await db.del('questions', q.id); all = all.filter(x => x !== q); sel.delete(q.id); render(); } } }, 'Sil')) });
+        h('button.btn.btn-sm.btn-danger', { on: { click: async () => { if (!await confirmBox('Bu soru depodan silinsin mi?', 'Sil')) return; await db.del('questions', q.id); all = all.filter(x => x !== q); sel.delete(q.id); render(); } } }, 'Sil')) });
       card.prepend(cb);
       list.append(card);
     }
@@ -132,7 +132,7 @@ export async function poolView(app) {
     if (['INPUT', 'TEXTAREA'].includes(e.target.tagName) || document.querySelector('.modal-bg')) return;
     const files = [...(e.clipboardData?.items || [])].filter(i => i.type.startsWith('image/')).map(i => i.getAsFile());
     if (!files.length) return;
-    e.preventDefault(); const qs = await imagesAsQuestions(files, 'Panodan yapıştırıldı'); all.unshift(...qs); render(); toast('Panodaki görsel havuza eklendi');
+    e.preventDefault(); const qs = await imagesAsQuestions(files, 'Panodan yapıştırıldı'); all.unshift(...qs); render(); toast('Panodaki görsel depoya eklendi');
   };
   document.addEventListener('paste', onPaste);
   // sürükle-bırak
@@ -144,10 +144,10 @@ export async function poolView(app) {
     h('div.card', { style: { position: 'absolute', right: 0, top: '42px', zIndex: 30, width: '300px', display: 'grid', gap: '4px', padding: '8px' } },
       h('button.btn.btn-ghost', { style: { justifyContent: 'flex-start' }, on: { click: () => distributionBuilder(all) } }, '📊 Kazanım tablosuyla seç'),
       h('button.btn.btn-ghost', { style: { justifyContent: 'flex-start' }, on: { click: () => imgsInp.click() } }, '🖼 Görselleri soru olarak ekle'),
-      h('button.btn.btn-ghost', { style: { justifyContent: 'flex-start' }, on: { click: () => exportQuestions(all, 'soru-havuzu') } }, '💾 Yedek al (bütün havuz)'),
+      h('button.btn.btn-ghost', { style: { justifyContent: 'flex-start' }, on: { click: () => exportQuestions(all, 'soru-deposu') } }, '💾 Yedek al (bütün depo)'),
       h('button.btn.btn-ghost', { style: { justifyContent: 'flex-start' }, on: { click: () => backupInp.click() } }, '📂 Yedekten aç'),
       h('button.btn.btn-ghost', { style: { justifyContent: 'flex-start' }, on: { click: () => { sel.clear(); rows().forEach(q => sel.add(q.id)); render(); } } }, '☑ Görünenlerin hepsini seç'),
-      h('button.btn.btn-ghost.btn-danger', { style: { justifyContent: 'flex-start' }, on: { click: async () => { if (!await confirmBox('Bütün havuz silinsin mi? Bu geri alınamaz.', 'Havuzu temizle')) return; await db.clear('questions'); all = []; sel.clear(); render(); } } }, '🗑 Havuzu temizle')));
+      h('button.btn.btn-ghost.btn-danger', { style: { justifyContent: 'flex-start' }, on: { click: async () => { if (!await confirmBox('Bütün depo silinsin mi? Bu geri alınamaz.', 'Havuzu temizle')) return; await db.clear('questions'); all = []; sel.clear(); render(); } } }, '🗑 Havuzu temizle')));
 
   fbar = filterBar(() => all, s => { st = s; page = 0; render(); });
   lastLen = all.length;
@@ -189,7 +189,7 @@ async function hazirModal(onDone) {
   const have = new Set((await db.all('questions')).map(q => q.hazir).filter(Boolean));
   let m;
   const rows = HAZIR_PAKETLER.map(p => {
-    const st = h('span.small.muted', have.has(p.id) ? '✓ Havuzda' : p.adet + ' soru');
+    const st = h('span.small.muted', have.has(p.id) ? '✓ Depoda' : p.adet + ' soru');
     const btn = h('button.btn.btn-sm' + (have.has(p.id) ? '' : '.btn-primary'), { on: { click: async () => {
       btn.disabled = true; st.textContent = 'İndiriliyor…';
       try {
@@ -197,13 +197,13 @@ async function hazirModal(onDone) {
         const pkg = await res.json();
         st.textContent = 'Ekleniyor…';
         let n = 0; for (const q of pkg.questions) { await db.put('questions', q); n++; if (n % 200 === 0) st.textContent = `Ekleniyor… ${n}/${pkg.questions.length}`; }
-        st.textContent = '✓ ' + n + ' soru havuzda'; toast(p.ad + ' havuza eklendi'); onDone?.();
+        st.textContent = '✓ ' + n + ' soru depoda'; toast(p.ad + ' depoya eklendi'); onDone?.();
       } catch (e) { st.textContent = navigator.onLine ? 'İndirilemedi' : 'İnternet gerekli'; btn.disabled = false; }
-    } } }, have.has(p.id) ? 'Yeniden yükle' : 'Havuza ekle');
-    const del = have.has(p.id) ? h('button.btn.btn-sm.btn-ghost.btn-danger', { on: { click: async () => { if (!await confirmBox(p.ad + ' havuzdan çıkarılsın mı? (Kendi sorularınız etkilenmez)', 'Çıkar')) return; for (const q of await db.all('questions')) if (q.hazir === p.id) await db.del('questions', q.id); m.close(); toast('Çıkarıldı'); onDone?.(); } } }, 'Çıkar') : null;
+    } } }, have.has(p.id) ? 'Yeniden yükle' : 'Depoya ekle');
+    const del = have.has(p.id) ? h('button.btn.btn-sm.btn-ghost.btn-danger', { on: { click: async () => { if (!await confirmBox(p.ad + ' depodan çıkarılsın mı? (Kendi sorularınız etkilenmez)', 'Çıkar')) return; for (const q of await db.all('questions')) if (q.hazir === p.id) await db.del('questions', q.id); m.close(); toast('Çıkarıldı'); onDone?.(); } } }, 'Çıkar') : null;
     return h('div.item-row', { style: { padding: '12px' } }, h('div.ico', { style: { fontSize: '1.6rem' } }, '📘'), h('div', { style: { flex: 1 } }, h('b', p.ad), h('div.small.muted', 'Yazar: ' + p.yazar + ' · Maarif Modeli kazanımlarıyla etiketli, cevaplı ve kısa çözümlü')), st, btn, del);
   });
-  m = modal('Hazır soru bankaları', h('div', { style: { display: 'grid', gap: '8px' } }, h('p.small.muted', 'Sorular sınıf, konu, kazanım, zorluk ve kısa çözümle birlikte havuzunuza eklenir; düzenleyebilir, belgelerde kullanabilirsiniz. Diğer branşlar yakında.'), ...rows));
+  m = modal('Hazır soru bankaları', h('div', { style: { display: 'grid', gap: '8px' } }, h('p.small.muted', 'Sorular sınıf, konu, kazanım, zorluk ve kısa çözümle birlikte deponuza eklenir; düzenleyebilir, belgelerde kullanabilirsiniz. Diğer branşlar yakında.'), ...rows));
 }
 
 // ---------- Toplu işlemler ----------
@@ -246,7 +246,7 @@ function bulkAnswers(ids, all, onDone) {
 
 async function bulkStamp(ids, all, onDone) {
   const b = await getBrand();
-  if (!(b.damgalar || []).length) { toast('Önce Kurum Kimliği → Damgalarım’dan damga oluşturun'); return; }
+  if (!(b.damgalar || []).length) { toast('Önce Kurum Kimliği → Mühürlerim’den mühür oluşturun'); return; }
   let m;
   m = modal('Seçili sorulara damga bas', h('div.row', [...b.damgalar.map(d => h('button', { style: { border: '1px solid var(--line)', borderRadius: '8px', background: '#fff', padding: '6px', cursor: 'pointer' }, on: { click: async () => { for (const id of ids) { const q = all.find(x => x.id === id); q.damga = d.id; await db.put('questions', q); } m.close(); toast('Damga basıldı'); onDone(); } } }, h('img', { src: d.img, style: { width: '64px' } }))),
     h('button.btn', { on: { click: async () => { for (const id of ids) { const q = all.find(x => x.id === id); delete q.damga; await db.put('questions', q); } m.close(); onDone(); } } }, 'Damgayı kaldır')]));
@@ -268,18 +268,18 @@ function distributionBuilder(all) {
       ...Object.entries(sen).filter(([, list]) => Array.isArray(list)).map(([yz, list]) => h('select.inp', { style: { width: 'auto' }, on: { change: e => { if (e.target.value === '') return; for (const k in counts) delete counts[k]; Object.assign(counts, list[+e.target.value].d); draw(); } } }, h('option', { value: '' }, yz), list.map((x, i) => h('option', { value: i }, `${x.ad} (${Object.values(x.d).reduce((a, b) => a + b, 0)} soru)`))))));
     if (!keys.length) { box.append(h('p.muted', 'Bu sınıf/derste kazanımla etiketli soru yok.')); return; }
     const total = Object.values(counts).reduce((a, b) => a + (b || 0), 0);
-    box.append(h('table.table', h('tr', h('th', 'Öğrenme çıktısı'), h('th', 'Havuzda'), h('th', 'Soru sayısı')), keys.map(k => { const n = groups[k]?.length || 0; return h('tr', h('td', h('b', k), h('div.small.muted', ciktiMetni(k) || groups[k]?.[0]?.konu || '')), h('td', { style: { color: (counts[k] || 0) > n ? 'var(--bad)' : null } }, String(n)), h('td', h('input.inp', { type: 'number', min: 0, value: counts[k] || 0, style: { width: '70px' }, on: { input: e => { counts[k] = +e.target.value; } } }))); }), h('tr', h('td', h('b', 'Toplam')), h('td'), h('td', h('b', String(total))))));
+    box.append(h('table.table', h('tr', h('th', 'Öğrenme çıktısı'), h('th', 'Depoda'), h('th', 'Soru sayısı')), keys.map(k => { const n = groups[k]?.length || 0; return h('tr', h('td', h('b', k), h('div.small.muted', ciktiMetni(k) || groups[k]?.[0]?.konu || '')), h('td', { style: { color: (counts[k] || 0) > n ? 'var(--bad)' : null } }, String(n)), h('td', h('input.inp', { type: 'number', min: 0, value: counts[k] || 0, style: { width: '70px' }, on: { input: e => { counts[k] = +e.target.value; } } }))); }), h('tr', h('td', h('b', 'Toplam')), h('td'), h('td', h('b', String(total))))));
   };
   const sinifs = [...new Set([...all.map(q => q.sinif).filter(Boolean), ...Object.keys(OGRENME_CIKTILARI)])].sort((a, b) => a.localeCompare(b, 'tr', { numeric: true }));
   const derss = [...new Set([...all.map(q => q.ders).filter(Boolean), ...Object.values(SENARYOLAR).flatMap(x => Object.keys(x))])].sort((a, b) => a.localeCompare(b, 'tr'));
   let m;
-  m = modal('Kazanım tablosuyla soru seç', h('div', { style: { display: 'grid', gap: '10px' } }, h('p.small.muted', 'Öğrenme çıktısı başına kaç soru istediğinizi yazın; sorular havuzdan rastgele seçilir.'),
+  m = modal('Kazanım tablosuyla soru seç', h('div', { style: { display: 'grid', gap: '10px' } }, h('p.small.muted', 'Öğrenme çıktısı başına kaç soru istediğinizi yazın; sorular depodan rastgele seçilir.'),
     h('div.row', h('select.inp', { style: { width: 'auto' }, on: { change: e => { sinif = e.target.value; draw(); } } }, h('option', { value: '' }, 'Sınıf'), sinifs.map(s => h('option', { value: s }, s))), h('select.inp', { style: { width: 'auto' }, on: { change: e => { ders = e.target.value; draw(); } } }, h('option', { value: '' }, 'Ders'), derss.map(s => h('option', { value: s }, s)))), box),
     { wide: true, actions: ['test', 'yazili'].map(kind => h('button.btn.btn-primary', { on: { click: () => {
       const ids = [];
       const eksik = [];
       for (const [k, n] of Object.entries(counts)) { if (!n) continue; const pool = all.filter(q => q.kazanim === k && (!sinif || q.sinif === sinif) && (!ders || q.ders === ders)).sort(() => Math.random() - .5); ids.push(...pool.slice(0, n).map(q => q.id)); if (pool.length < n) eksik.push(k + ' (' + (n - pool.length) + ')'); }
-      if (eksik.length) toast('Havuzda yetmeyen: ' + eksik.join(', '));
+      if (eksik.length) toast('Depoda yetmeyen: ' + eksik.join(', '));
       if (!ids.length) { toast('Soru sayısı girin'); return; }
       m.close(); sessionStorage.setItem('yeniQids', JSON.stringify(ids)); location.hash = '#/yeni/' + kind;
     } } }, KINDS[kind].kisa + ' oluştur')) });
@@ -347,11 +347,11 @@ export async function editQuestion(q, onSaved, { preset = {}, list = null } = {}
   const cozImg = h('img', { src: d.cozumImg || '', style: { maxHeight: '120px', display: d.cozumImg ? 'block' : 'none' } });
   const cozInp = h('input', { type: 'file', accept: 'image/*', hidden: true, on: { change: async e => { const f = e.target.files[0]; if (!f) return; d.cozumImg = await shrinkImage(await readFileAsDataURL(f)); cozImg.src = d.cozumImg; cozImg.style.display = 'block'; } } });
   // kullanım geçmişi
-  const usage = h('div.small.muted', 'Kullanım geçmişi yükleniyor…');
+  const usage = h('div.small.muted', 'Kullanıldığı belgeler yükleniyor…');
   db.all('documents').then(docs => {
     const used = docs.filter(x => (x.items || []).some(i => i.qid === d.id) || (x.sections || []).some(s => s.qids.includes(d.id)) || (x.blocks || []).some(b => b.qid === d.id));
     usage.innerHTML = '';
-    usage.append(h('b', `Kullanım geçmişi (${used.length})`), used.length ? h('div', used.map(x => h('a', { href: '#/belge/' + x.id, style: { display: 'block' } }, '• ' + (x.title || KINDS[x.kind].ad)))) : h('div', 'Bu soru henüz hiçbir belgede kullanılmadı.'));
+    usage.append(h('b', `Kullanıldığı belgeler (${used.length})`), used.length ? h('div', used.map(x => h('a', { href: '#/belge/' + x.id, style: { display: 'block' } }, '• ' + (x.title || KINDS[x.kind].ad)))) : h('div', 'Bu soru henüz hiçbir belgede kullanılmadı.'));
   });
 
   let m;
@@ -395,7 +395,7 @@ export async function editQuestion(q, onSaved, { preset = {}, list = null } = {}
 }
 
 // ---------- Havuzdan seçici ----------
-export async function pickQuestions({ exclude = [], title = 'Havuzdan soru seç', filter, preset = {} } = {}) {
+export async function pickQuestions({ exclude = [], title = 'Depodan soru seç', filter, preset = {} } = {}) {
   let all = (await db.all('questions')).sort((a, b) => b.created - a.created);
   if (filter) all = all.filter(filter);
   const ex = new Set(exclude);
@@ -422,7 +422,7 @@ export async function pickQuestions({ exclude = [], title = 'Havuzdan soru seç'
       h('div.row', { style: { marginBottom: '8px' } },
         h('button.btn.btn-sm', { on: { click: () => { applyFilter(all, st).filter(q => !ex.has(q.id) && !chosen.includes(q.id)).forEach(q => chosen.push(q.id)); cnt.textContent = chosen.length; render(); } } }, 'Görünenlerin hepsini seç'),
         h('label.row.small', 'Rastgele ', h('input.inp', { type: 'number', min: 1, value: 10, style: { width: '64px' }, id: 'rndN' }), h('button.btn.btn-sm', { on: { click: () => { const n = +document.getElementById('rndN').value || 10; const pool = applyFilter(all, st).filter(q => !ex.has(q.id) && !chosen.includes(q.id)).sort(() => Math.random() - .5).slice(0, n); pool.forEach(q => chosen.push(q.id)); cnt.textContent = chosen.length; render(); } } }, 'seç')),
-        h('button.btn.btn-sm.btn-accent', { on: { click: () => { finish(null); cropTool(() => toast('Kırpılan sorular havuza eklendi; tekrar seçiciyi açın.')); } } }, '✂ Yeni kırp')),
+        h('button.btn.btn-sm.btn-accent', { on: { click: () => { finish(null); cropTool(() => toast('Kırpılan sorular depoya eklendi; tekrar seçiciyi açın.')); } } }, '✂ Yeni kırp')),
       list), { wide: true, actions: [h('span.muted', 'Seçili: ', cnt), h('span.spacer'), h('button.btn', { on: { click: () => finish([]) } }, 'Vazgeç'), h('button.btn.btn-primary', { on: { click: () => finish(chosen.slice()) } }, 'Ekle')] });
     const obs = new MutationObserver(() => { if (!m.box.isConnected) { obs.disconnect(); finish([]); } });
     obs.observe(document.body, { childList: true });
@@ -489,7 +489,7 @@ export async function cropTool(onDone) {
         ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, im.width, im.height); ctx.drawImage(im, 0, 0);
         fitCanvas();
       }
-      status.textContent = 'Sorunun çevresine çerçeve çizin, sonra cevabın harfine basın (klavyede A–E). “Sayfadaki soruları bul” çerçeveleri kendisi çizer.';
+      status.textContent = 'Sorunun çevresine çerçeve çizin, sonra cevabın harfine basın (klavyede A–E). “Soruları otomatik çerçevele” düğmesi bunu kendisi yapar.';
     } catch (err) {
       console.error(err);
       status.textContent = navigator.onLine ? 'Dosya açılamadı: ' + err.message : 'PDF okuyucu ilk kez internet gerektirir. Bir kez çevrimiçiyken açın, sonra çevrimdışı da çalışır.';
@@ -555,7 +555,7 @@ export async function cropTool(onDone) {
   function drawDetected() {
     detLayer.innerHTML = '';
     detected.forEach((d, i) => detLayer.append(h('div', { style: { position: 'absolute', left: d.x * viewScale + 'px', top: d.y * viewScale + 'px', width: d.w * viewScale + 'px', height: d.h * viewScale + 'px', border: '2px dashed ' + (d.done ? '#2f8a57' : '#1B4B7F'), background: d.done ? 'rgba(47,138,87,.08)' : 'rgba(27,75,127,.06)', pointerEvents: 'auto', cursor: 'pointer' }, on: { click: () => { rect = { x: d.x, y: d.y, w: d.w, h: d.h }; detected.cur = i; showPreview(); } } },
-      h('span', { style: { position: 'absolute', left: 0, top: '-18px', background: d.done ? '#2f8a57' : '#1B4B7F', color: '#fff', fontSize: '11px', padding: '1px 6px', borderRadius: '4px' } }, (d.no ? '#' + d.no : '#' + (i + 1)) + (d.ans ? ' · ' + d.ans : '')))));
+      h('span', { style: { position: 'absolute', left: 0, top: '-18px', background: d.done ? '#2f8a57' : '#4C3BB5', color: '#fff', fontSize: '11px', padding: '1px 6px', borderRadius: '4px' } }, (d.no ? '#' + d.no : '#' + (i + 1)) + (d.ans ? ' · ' + d.ans : '')))));
   }
   function detect() {
     if (!canvas.width) { toast('Önce bir sayfa açın'); return; }
@@ -596,9 +596,9 @@ export async function cropTool(onDone) {
     status.textContent = detected.length ? `${detected.length} soru bulundu. Bir çerçeveye tıklayıp harfe basın ya da “Bulunanların hepsini ekle” deyin.` : 'Bu sayfada soru bulunamadı; elle çerçeveleyin.';
   }
   async function addAllDetected() {
-    if (!detected.length) { toast('Önce “Sayfadaki soruları bul”'); return; }
+    if (!detected.length) { toast('Önce “Soruları otomatik çerçevele”'); return; }
     let n = 0; for (const d of detected) { if (d.done) continue; rect = { x: d.x, y: d.y, w: d.w, h: d.h }; await commit(d.ans || '', d.no); d.done = true; n++; }
-    drawDetected(); toast(n + ' soru havuza eklendi');
+    drawDetected(); toast(n + ' soru depoya eklendi');
   }
   async function readKey() {
     let text = pageText ? pageText.map(t => t.s).join(' ') : '';
@@ -626,7 +626,7 @@ export async function cropTool(onDone) {
     redrawThumbs();
     ctx.save(); ctx.fillStyle = 'rgba(27,75,127,.08)'; ctx.fillRect(rect.x, rect.y, rect.w, rect.h); ctx.restore();
     rect = null; rectEl.hidden = true; preview.hidden = true;
-    status.textContent = `${added.length} soru havuza eklendi. Sıradakini çerçeveleyin.`;
+    status.textContent = `${added.length} soru depoya eklendi. Sıradakini çerçeveleyin.`;
   }
 
   const metaInputs = {
@@ -634,7 +634,7 @@ export async function cropTool(onDone) {
     sinif: h('input.inp', { value: meta.sinif || '', placeholder: 'Sınıf' }),
     konu: h('input.inp', { value: meta.konu || '', placeholder: 'Konu' }),
   };
-  const modeSeg = h('div.seg', [['crop', '✂ Kırp'], ['tippex', '🩹 Tippex']].map(([v, l]) => h('button' + (v === mode ? '.on' : ''), { type: 'button', on: { click: e => { mode = v; [...modeSeg.children].forEach(b => b.classList.toggle('on', b === e.target)); stage.style.cursor = v === 'tippex' ? 'cell' : 'crosshair'; } } }, l)));
+  const modeSeg = h('div.seg', [['crop', '✂ Kırp'], ['tippex', '🩹 Ört']].map(([v, l]) => h('button' + (v === mode ? '.on' : ''), { type: 'button', on: { click: e => { mode = v; [...modeSeg.children].forEach(b => b.classList.toggle('on', b === e.target)); stage.style.cursor = v === 'tippex' ? 'cell' : 'crosshair'; } } }, l)));
   stage.style.cursor = 'crosshair';
 
   const onKey = e => {
@@ -659,7 +659,7 @@ export async function cropTool(onDone) {
         h('button.btn.btn-sm', { on: { click: async () => { if (pdf && pageNo < pageCount) { pageNo++; await drawPdfPage(); } } } }, '›'),
         h('span.spacer'), modeSeg),
       h('div.row', { style: { marginBottom: '8px', gap: '6px' } },
-        h('button.btn.btn-sm.btn-accent', { on: { click: detect } }, '🔎 Sayfadaki soruları bul'),
+        h('button.btn.btn-sm.btn-accent', { on: { click: detect } }, '🔎 Soruları otomatik çerçevele'),
         h('button.btn.btn-sm', { on: { click: addAllDetected } }, '＋ Bulunanların hepsini ekle'),
         h('button.btn.btn-sm', { title: 'Açık sayfa cevap anahtarıysa okuyup sorulara yazar', on: { click: readKey } }, '🔑 Bu sayfadaki anahtarı oku')),
       stage, status),
@@ -675,7 +675,7 @@ export async function cropTool(onDone) {
       thumbs)
   ), { wide: true, actions: [h('button.btn.btn-primary', { on: { click: () => m.close() } }, 'Bitti')] });
 
-  const obs = new MutationObserver(() => { if (!m.box.isConnected) { obs.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('paste', onPaste); if (added.length) { toast(added.length + ' soru havuza eklendi'); onDone?.(added); } } });
+  const obs = new MutationObserver(() => { if (!m.box.isConnected) { obs.disconnect(); document.removeEventListener('keydown', onKey); document.removeEventListener('paste', onPaste); if (added.length) { toast(added.length + ' soru depoya eklendi'); onDone?.(added); } } });
   obs.observe(document.body, { childList: true });
   stage.addEventListener('dragover', e => e.preventDefault());
   stage.addEventListener('drop', async e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (!f) return; const rec = { id: uid(), name: f.name, type: /pdf/i.test(f.type) ? 'pdf' : 'img', blob: f, added: Date.now(), page: 1 }; try { await db.put('files', rec); } catch { } curFileId = rec.id; drawLib(); openFile(f, rec.type, f.name); });

@@ -1,7 +1,7 @@
 {
-  "name": "Soru Evim — Kendi Yayıneviniz Olun",
+  "name": "Soru Evim — Sınıfınızın Kâğıdı Sizden",
   "short_name": "Soru Evim",
-  "description": "Konu föyü, yaprak test, yazılı, deneme ve soru bankası — kendi sorularınızla, kendi logonuzla.",
+  "description": "Tarama testi, dönem yazılısı, deneme kitapçığı ve konu anlatımı; okulunuzun adıyla, dakikalar içinde.",
   "id": "./",
   "start_url": "./#/",
   "scope": "./",
@@ -9,7 +9,7 @@
   "display_override": ["window-controls-overlay", "standalone"],
   "orientation": "any",
   "background_color": "#f6f1e7",
-  "theme_color": "#1B4B7F",
+  "theme_color": "#4C3BB5",
   "lang": "tr",
   "dir": "ltr",
   "categories": ["education", "productivity"],
@@ -20,7 +20,7 @@
     { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
   ],
   "shortcuts": [
-    { "name": "Yaprak Test", "url": "./#/yeni/test", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Tarama Testi", "url": "./#/yeni/test", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Soru Havuzu", "url": "./#/havuz", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Sınavlarım", "url": "./#/sinavlar", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
   ]

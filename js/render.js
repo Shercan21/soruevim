@@ -4,7 +4,7 @@ import { ciktiMetni } from './meb.js';
 import { BODY_FONTS, TITLE_FONTS, SIZES, PAPERS, DEFAULT_LOOK, loadQR } from './design.js';
 
 export const KINDS = {
-  foy: { ad: 'Konu Anlatımı', kisa: 'Konu Anlatımı', aciklama: 'Başlıklar, bilgi kutuları, çözümlü örnekler', ek: 'Föy' },
+  foy: { ad: 'Konu Anlatımı', kisa: 'Konu Anlatımı', aciklama: 'Başlıklar, bilgi kutuları, çözümlü örnekler', ek: 'Konu' },
   test: { ad: 'Tarama Testi', kisa: 'Test', aciklama: 'Çoktan seçmeli, iki sütun, cevap anahtarlı', ek: 'Test' },
   yazili: { ad: 'Dönem Yazılısı', kisa: 'Yazılı', aciklama: 'MEB senaryolu, puanlı, açık uçlu ya da karma', ek: 'Yazılı' },
   deneme: { ad: 'Deneme Kitapçığı', kisa: 'Deneme', aciklama: 'Genel ya da branş denemesi — LGS, TYT, AYT, okul', ek: 'Deneme' },
@@ -57,7 +57,7 @@ export const DENEME_TURLERI = [
 ];
 export const denemeTuru = id => { for (const a of DENEME_TURLERI) for (const t of a.turler) if (t.id === id) return { ...t, aile: a.aile, ceza: a.ceza, sik: a.sik, not: a.not }; return null; };
 
-export const FOY_LABELS = { not: 'NOT', dikkat: 'DİKKAT', kural: 'KURAL', tanim: 'TANIM', puf: 'PÜF NOKTASI', formul: 'FORMÜL', ornek: 'Örnek', alistirma: 'Sıra Sizde' };
+export const FOY_LABELS = { not: 'NOT', dikkat: 'DİKKAT', kural: 'KURAL', tanim: 'TANIM', puf: 'İPUCU', formul: 'FORMÜL', ornek: 'Örnek', alistirma: 'Şimdi Sen' };
 
 // Varsayılan belge ayarları
 export function defaultAyar(kind) {
@@ -115,8 +115,8 @@ function sheetEl(ctx) {
   const [pw, ph] = PAPERS[ayar.kagit] || PAPERS.A4;
   const s = h('div.sheet.qn-' + look.soruNo + '.tpl-' + look.sablon + '.pn-' + look.sayfaNo);
   const st = s.style;
-  st.setProperty('--acc', brand.renk || '#1B4B7F');
-  st.setProperty('--acc2', brand.renk2 || brand.renk || '#2E6DB4');
+  st.setProperty('--acc', brand.renk || '#4C3BB5');
+  st.setProperty('--acc2', brand.renk2 || brand.renk || '#C2418F');
   st.setProperty('--pf', (BODY_FONTS[look.govdeFont] || BODY_FONTS.yayinevi).css);
   st.setProperty('--tf', (TITLE_FONTS[look.baslikFont] || TITLE_FONTS.grotesk).css);
   const basePt = (SIZES[look.boyut] || SIZES.lise).pt * (ctx.small ? .92 : 1) * ((ayar.olcek || 100) / 100);
@@ -177,7 +177,7 @@ function headerEl(ctx, first, kit) {
 
 function footerEl(ctx, pno) {
   const { brand, look } = ctx;
-  const soz = brand.soz ?? 'Başarılar dileriz.';
+  const soz = brand.soz ?? 'İyi çalışmalar.';
   const sozEl = soz ? h('span.soz', soz + (brand.simge ? ' ' + brand.simge : '')) : null;
   const pn = h('span.pn-wrap', h('span.pn', String(pno)));
   const lay = look.altBilgi || 'klasik';
@@ -436,7 +436,7 @@ export async function renderDoc(host, doc, qmap, brand, { teacher = false, small
     if (kind === 'foy') {
       const blocks = []; const counters = { ornek: 0, alistirma: 0 }; let n = 0;
       for (const b of doc.blocks || []) {
-        if (b.t === 'soru') { const q = qmap[b.qid]; n++; counters.alistirma++; const el = questionEl(q, n, ctx, { wide: ayar.cols === 1 }); if (q?.answer) el.dataset.note = `Sıra Sizde ${counters.alistirma}: ${q.answer}`; blocks.push({ el }); if (q?.answer) (keyGroups[0] ||= { items: [] }).items.push([n, q.answer]); continue; }
+        if (b.t === 'soru') { const q = qmap[b.qid]; n++; counters.alistirma++; const el = questionEl(q, n, ctx, { wide: ayar.cols === 1 }); if (q?.answer) el.dataset.note = `Şimdi Sen ${counters.alistirma}: ${q.answer}`; blocks.push({ el }); if (q?.answer) (keyGroups[0] ||= { items: [] }).items.push([n, q.answer]); continue; }
         if (b.t === 'sayfa') { blocks.push({ el: h('div'), newPage: true }); continue; }
         blocks.push({ el: foyBlock(b, ctx, counters), genis: b.genis });
       }

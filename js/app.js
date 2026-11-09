@@ -60,7 +60,7 @@ route();
 const applyTheme = t => {
   const dark = t === 'koyu' || (t === 'sistem' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-  document.querySelector('meta[name=theme-color]')?.setAttribute('content', dark ? '#1d2129' : '#1B4B7F');
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content', dark ? '#1d2129' : '#4C3BB5');
 };
 let theme = localStorage.getItem('tema') || 'acik';
 applyTheme(theme);

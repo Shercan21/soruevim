@@ -1,6 +1,6 @@
 /* ===================== KÂĞIT (önizleme = baskı) ===================== */
 #printRoot{display:none}
-.sheet{--acc:#1B4B7F;--acc2:#2E6DB4;--pf:Arial,sans-serif;--tf:Arial,sans-serif;--fs:11pt;--pw:210mm;--ph:297mm;--gap:5mm;
+.sheet{--acc:#4C3BB5;--acc2:#C2418F;--pf:Arial,sans-serif;--tf:Arial,sans-serif;--fs:11pt;--pw:210mm;--ph:297mm;--gap:5mm;
   width:var(--pw);height:var(--ph);background:#fff;color:#111;position:relative;overflow:hidden;margin:0 auto 18px;box-shadow:0 2px 10px rgba(0,0,0,.18);
   font-family:var(--pf);font-size:var(--fs);line-height:1.38}
 .sheet .pg-in{position:absolute;inset:11mm 12mm 13mm;display:flex;flex-direction:column}

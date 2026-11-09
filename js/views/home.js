@@ -89,7 +89,7 @@ function countOf(d) {
 const TOUR = [
   ['marka', 'Önce kurum kimliğinizi hazırlayın: logo, renk, şablon galerisi. Her dosyada kendiliğinden uygulanır.'],
   ['havuz', 'Soru deposu: hazır kimya bankalarını ekleyin, PDF’ten kırpın ya da kendi sorunuzu yazın.'],
-  ['test', 'Ne hazırlayacağınızı seçin; sorular havuzdan gelir, sayfa düzeni A4’e göre kendiliğinden kurulur.'],
+  ['test', 'Ne hazırlayacağınızı seçin; sorular depodan gelir, sayfa düzeni A4’e göre kendiliğinden kurulur.'],
 ];
 export function startTour(i = 0) {
   document.querySelectorAll('.tour,.tour-hl').forEach(e => e.classList?.contains('tour') ? e.remove() : e.classList.remove('tour-hl'));

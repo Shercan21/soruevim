@@ -49,7 +49,7 @@ function richWord(s) { return rich(s || '').replace(/<span class="katex[\s\S]*?<
 export async function exportWord(doc, { teacher = false } = {}) {
   const qmap = Object.fromEntries((await db.all('questions')).map(q => [q.id, q]));
   const brand = await getBrand();
-  const acc = brand.renk || '#1B4B7F';
+  const acc = brand.renk || '#4C3BB5';
   const parts = []; let pid = 0;
   const img = (src, w) => {
     const m = /^data:(image\/[\w+]+);base64,(.+)$/.exec(src || ''); if (!m) return src ? `<img src="${src}" width="${w}">` : '';

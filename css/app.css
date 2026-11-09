@@ -106,7 +106,7 @@ textarea.inp,.fld textarea{min-height:80px;resize:vertical}
 .editor-side>*,.item-row,.block-ed,.q-item{min-width:0}
 .editor-side{position:sticky;top:76px;max-height:calc(100vh - 96px);overflow-y:auto;overflow-x:hidden;min-width:0;display:grid;gap:14px}
 @media (max-width:980px){.editor-side{position:static;max-height:none}}
-.preview-area{background:#cfc6b4;border-radius:14px;padding:18px;overflow:auto}
+.preview-area{background:#dde3ec;border-radius:14px;padding:18px;overflow:auto}
 .preview-scale{transform-origin:top left}
 .warn{background:#fdf0d8;border:1px solid #f0cf94;color:#7a4b06;padding:8px 12px;border-radius:9px;font-size:.9rem}
 .item-row{display:flex;align-items:center;gap:8px;padding:7px 8px;border:1px solid var(--line);background:var(--surface);border-radius:9px;font-size:.88rem}
