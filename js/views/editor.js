@@ -1,6 +1,6 @@
 import { h, toast, uid, confirmBox, readFileAsDataURL, readFileAsText, shrinkImage, download, modal, $ } from '../util.js';
 import { db, getBrand } from '../db.js';
-import { KINDS, VARIANTS, kindInfo, DENEME_TURLERI, BRANSLAR, denemeTuru, renderDoc, defaultAyar, setKatex, FOY_LABELS } from '../render.js';
+import { KINDS, VARIANTS, kindInfo, DENEME_TURLERI, BRANSLAR, denemeTuru, renderDoc, defaultAyar, setKatex, FOY_LABELS, lookOf } from '../render.js';
 import { HEADERS, TEMPLATES, PAGE_NUMS, Q_NUMS, BODY_FONTS, TITLE_FONTS, FOOTERS, SIZES, PAPERS, ensureFonts, loadKatex } from '../design.js';
 import { pickQuestions, editQuestion, qCard, cropTool, DERSLER } from './pool.js';
 import { SENARYOLAR, SENARYO_YILI, ciktiMetni, OGRENME_CIKTILARI } from '../meb.js';
@@ -616,6 +616,14 @@ export async function editorView(app, { id }) {
   const chk = (label, get, set) => h('label.check', h('input', { type: 'checkbox', checked: !!get(), on: { change: e => { set(e.target.checked); changed(); } } }), label);
   const txt = (label, obj, key, ph, hint) => h('label.fld', label, h('input.inp', { value: obj[key] || '', placeholder: ph || '', on: { input: e => { obj[key] = e.target.value; changed(); } } }), hint ? h('span.small.muted', { style: { fontWeight: 400 } }, hint) : null);
   const sel = (label, obj, key, opts, after) => h('label.fld', label, h('select.inp', { value: obj[key] ?? '', on: { change: e => { obj[key] = e.target.value; changed(); after?.(); } } }, Object.entries(opts).map(([v, l]) => h('option', { value: v }, typeof l === 'string' ? l : l.ad))));
+  // Hazır değerlerden seç ya da “Elle gir…” ile istediğin değeri yaz
+  const secVeyaYaz = (label, vals, cur, unit, set, { min, max, step, vars }) => {
+    const fmt = v => String(v).replace('.', ',') + ' ' + unit + (v === vars ? ' (varsayılan)' : '');
+    const inp = h('input.inp', { type: 'text', inputmode: 'decimal', value: String(cur).replace('.', ','), style: { width: '90px', display: vals.includes(cur) ? 'none' : '' }, on: { change: e => { const v = Math.max(min, Math.min(max, +String(e.target.value).replace(',', '.') || min)); e.target.value = String(v).replace('.', ','); set(v); } } });
+    const sel = h('select.inp', { style: { flex: 1 }, on: { change: e => { if (e.target.value === 'elle') { inp.style.display = ''; inp.focus(); return; } inp.style.display = 'none'; inp.value = e.target.value.replace('.', ','); set(+e.target.value); } } },
+      vals.map(v => h('option', { value: v, selected: v === cur }, fmt(v))), h('option', { value: 'elle', selected: !vals.includes(cur) }, '✎ Elle gir…'));
+    return h('label.fld', label, h('div.row', { style: { gap: '6px', flexWrap: 'nowrap' } }, sel, inp, h('span.small.muted', unit)));
+  };
   const range = (label, obj, key, min, max, unit) => { const out = h('b', (obj[key] ?? min) + unit); return h('label.fld', h('span', label, ': ', out), h('input', { type: 'range', min, max, value: obj[key] ?? min, on: { input: e => { obj[key] = +e.target.value; out.textContent = e.target.value + unit; changed(); } } })); };
   const segPick = (values, cur, onPick) => { const s = h('div.seg', values.map(([v, l]) => h('button' + (v === cur ? '.on' : ''), { type: 'button', on: { click: e => { [...s.children].forEach(b => b.classList.toggle('on', b === e.target)); onPick(v); } } }, l))); return s; };
 
@@ -634,12 +642,10 @@ export async function editorView(app, { id }) {
         h('div.row', h('b.small', 'Sütun'), segPick([[1, '1 Sütun'], [2, '2 Sütun']], a.cols || 2, v => { a.cols = v; drawContent(); changed(); }))),
       sec('Sayfa ve yerleşim', true,
         sel('Kâğıt boyutu', a, 'kagit', { A4: 'A4 (210 × 297 mm)', A5: 'A5 (148 × 210 mm)', A3: 'A3 (297 × 420 mm)', Letter: 'Letter (216 × 279 mm)', Legal: 'Legal (216 × 356 mm)' }),
-        k !== 'foy' ? (() => { const cur = a.bosluk ?? 10; const mm = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30]; const vals = [...new Set([...mm.map(x => x * 2), cur])].sort((x, y) => x - y);
-          return h('label.fld', 'Sorular arası boşluk', h('select.inp', { on: { change: e => { a.bosluk = +e.target.value; changed(); } } }, vals.map(v => h('option', { value: v, selected: v === cur }, (v / 2).toLocaleString('tr-TR') + ' mm' + (v === 10 ? ' (varsayılan)' : ''))))); })() : null,
+        k !== 'foy' ? secVeyaYaz('Sorular arası boşluk', [5, 10, 15, 20, 25, 30, 35, 40, 45, 50], (a.bosluk ?? 10) / 2, 'mm', v => { a.bosluk = v * 2; changed(); }, { min: 0, max: 80, step: 0.5, vars: 5 }) : null,
         k !== 'foy' ? sel('Akıllı yerleştirme', a, 'akilli', { ikisi: 'Açık — az sayfa + boşluğu eşit dağıt', esit: 'Yalnızca boşluğu sayfaya eşit dağıt', az: 'Yalnızca daha az sayfa (boşluğu gerekirse daralt)', yok: 'Kapalı — sorular üstten sıkışık dizilir' }) : null,
         k !== 'foy' ? h('p.small.muted', { style: { margin: '-4px 0 0' } }, 'Eşit dağıt: seçtiğiniz boşluk en az boşluk olur; dolu sayfalarda artan yer sorular arasına paylaştırılır. Az sayfa: bir sayfa kazandırıyorsa boşluk en çok %40 daraltılır. Boşluğun tam ayarladığınız gibi kalmasını istiyorsanız “Kapalı” seçin.') : null,
-        (() => { const cur = a.olcek ?? 100; const vals = [...new Set([70, 80, 85, 90, 95, 100, 105, 110, 120, 130, 140, cur])].sort((x, y) => x - y);
-          return h('label.fld', 'Yazı ölçeği', h('select.inp', { on: { change: e => { a.olcek = +e.target.value; changed(); } } }, vals.map(v => h('option', { value: v, selected: v === cur }, '%' + v + (v === 100 ? ' (normal)' : v < 100 ? ' — küçük' : ' — büyük'))))); })(),
+        secVeyaYaz('Yazı boyutu (punto)', [8, 9, 10, 10.5, 11, 12, 13, 14, 16, 18, 20, 24], +(a.punto || ((SIZES[lookOf(brand, doc).boyut] || SIZES.lise).pt * (a.olcek || 100) / 100)).toFixed(1), 'pt', v => { a.punto = v; a.olcek = 100; changed(); }, { min: 6, max: 40, step: 0.5, vars: (SIZES[lookOf(brand, doc).boyut] || SIZES.lise).pt }),
         k !== 'foy' ? chk('Soru başına puan etiketi — “(5 Puan)”', () => a.puanEtiketi, v => a.puanEtiketi = v) : null,
         k !== 'foy' ? chk('Süreç bileşeni etiketini göster (ör. “Bağlam”)', () => a.surecGoster, v => a.surecGoster = v) : null),
       k !== 'foy' ? sec('Künye', false,

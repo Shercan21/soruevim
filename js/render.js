@@ -126,7 +126,7 @@ function sheetEl(ctx) {
   st.setProperty('--acc2', brand.renk2 || brand.renk || '#C2418F');
   st.setProperty('--pf', (BODY_FONTS[look.govdeFont] || BODY_FONTS.yayinevi).css);
   st.setProperty('--tf', (TITLE_FONTS[look.baslikFont] || TITLE_FONTS.grotesk).css);
-  const basePt = (SIZES[look.boyut] || SIZES.lise).pt * (ctx.small ? .92 : 1) * ((ayar.olcek || 100) / 100);
+  const basePt = (ayar.punto ? +ayar.punto : (SIZES[look.boyut] || SIZES.lise).pt * ((ayar.olcek || 100) / 100)) * (ctx.small ? .92 : 1);
   st.setProperty('--fs', basePt.toFixed(2) + 'pt');
   st.setProperty('--pw', pw + 'mm'); st.setProperty('--ph', ph + 'mm');
   st.setProperty('--gap', (ayar.bosluk ?? 10) * 0.5 + 'mm');
