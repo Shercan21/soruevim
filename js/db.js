@@ -33,14 +33,31 @@ function tx(store, mode, fn) {
 }
 const wrap = req => new Promise((res, rej) => { req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error); });
 
+// Bulut eşitlemesi için değişiklik izleme: sorular ve belgeler zaman damgası (_t) alır,
+// silinenler "mezar" olarak kaydedilir; bazı ayarların değişme zamanı tutulur.
+export const IZLENEN = ['questions', 'documents'];
+export const KV_IZLENEN = ['brand', 'brans', 'ozelKazanimlar'];
+const degisti = () => { try { window.dispatchEvent(new Event('soruevim-degisti')); } catch { } };
+const ham = {
+  put: (store, obj) => tx(store, 'readwrite', s => wrap(s.put(obj))),
+  kvGet: key => tx('kv', 'readonly', s => wrap(s.get(key))),
+  kvSet: (key, val) => tx('kv', 'readwrite', s => wrap(s.put(val, key))),
+};
+async function mezar(store, ids) {
+  if (!ids.length) return;
+  const m = (await ham.kvGet('silinen')) || {}; const t = Date.now();
+  for (const id of ids) m[store[0] + ':' + id] = t;
+  await ham.kvSet('silinen', m);
+}
 export const db = {
   all: store => tx(store, 'readonly', s => wrap(s.getAll())),
   get: (store, id) => tx(store, 'readonly', s => wrap(s.get(id))),
-  put: (store, obj) => tx(store, 'readwrite', s => wrap(s.put(obj))),
-  del: (store, id) => tx(store, 'readwrite', s => wrap(s.delete(id))),
-  clear: store => tx(store, 'readwrite', s => wrap(s.clear())),
-  kvGet: key => tx('kv', 'readonly', s => wrap(s.get(key))),
-  kvSet: (key, val) => tx('kv', 'readwrite', s => wrap(s.put(val, key))),
+  // opt.sessiz: zaman damgası koyma (hazır paket yükleme, buluttan gelen veri)
+  put: async (store, obj, opt = {}) => { if (IZLENEN.includes(store) && !opt.sessiz) obj._t = Date.now(); const r = await ham.put(store, obj); if (IZLENEN.includes(store) && !opt.bulut) degisti(); return r; },
+  del: async (store, id, opt = {}) => { const r = await tx(store, 'readwrite', s => wrap(s.delete(id))); if (IZLENEN.includes(store) && !opt.bulut) { await mezar(store, [id]); degisti(); } return r; },
+  clear: async store => { if (IZLENEN.includes(store)) await mezar(store, (await db.all(store)).map(x => x.id)); const r = await tx(store, 'readwrite', s => wrap(s.clear())); if (IZLENEN.includes(store)) degisti(); return r; },
+  kvGet: key => ham.kvGet(key),
+  kvSet: async (key, val, opt = {}) => { const r = await ham.kvSet(key, val); if (KV_IZLENEN.includes(key) && !opt.bulut) { const z = (await ham.kvGet('kvZaman')) || {}; z[key] = Date.now(); await ham.kvSet('kvZaman', z); degisti(); } return r; },
   async exportAll() {
     const out = { app: 'soruevim', version: 1, exportedAt: new Date().toISOString() };
     for (const s of STORES.filter(x => x !== 'kv' && x !== 'files')) out[s] = await db.all(s);
@@ -54,7 +71,7 @@ export const db = {
     if (!data || data.app !== 'soruevim') throw new Error('Bu dosya bir Soru Evim yedeği değil.');
     for (const s of STORES.filter(x => x !== 'kv' && x !== 'files')) {
       if (replace) await db.clear(s);
-      for (const item of data[s] || []) await db.put(s, item);
+      for (const item of data[s] || []) await db.put(s, item, { sessiz: !!item.hazir && !item._t });
     }
     if (data.brand) await db.kvSet('brand', data.brand);
     if (data.siniflar) await db.kvSet('siniflar', data.siniflar);

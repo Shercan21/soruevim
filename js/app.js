@@ -1,5 +1,7 @@
 import { $, $$, h, toast, readFileAsText, confirmBox } from './util.js';
 import { loadBrans, brans, bransSecici, loadOzel } from './brans.js';
+import { baslat as bulutBaslat } from './bulut.js';
+import { iletisimAc } from './iletisim.js';
 import { db } from './db.js';
 import { homeView, docsView, startTour } from './views/home.js';
 import { brandView } from './views/brand.js';
@@ -7,6 +9,7 @@ import { poolView } from './views/pool.js';
 import { editorView, introView } from './views/editor.js';
 
 const app = $('#app');
+$('#iletisimBtn')?.addEventListener('click', iletisimAc);
 let cleanup = null;
 
 const takeQids = () => { const s = sessionStorage.getItem('yeniQids'); sessionStorage.removeItem('yeniQids'); try { return s ? JSON.parse(s) : null; } catch { return null; } };
@@ -44,6 +47,14 @@ await loadBrans();
 await loadOzel();
 if (!brans()) await bransSecici({ zorunlu: true });
 route();
+bulutBaslat();
+window.addEventListener('soruevim-buluttan', async e => { await loadBrans(); await loadOzel(); toast(`Drive’dan ${e.detail} değişiklik alındı`); if (!/^#\/belge\//.test(location.hash)) route(); });
+window.addEventListener('soruevim-hazir-eksik', async e => {
+  // Diğer cihazda eklenmiş hazır paketleri bu cihaza da indir
+  const { HAZIR_PAKETLER } = await import('./views/pool.js');
+  for (const id of e.detail) { const p = HAZIR_PAKETLER.find(x => x.id === id); if (!p) continue;
+    try { const pkg = await (await fetch(p.url)).json(); for (const q of pkg.questions) if (!(await db.get('questions', q.id))) await db.put('questions', q, { sessiz: true, bulut: true }); toast(p.ad + ' bu cihaza da eklendi'); } catch { } }
+});
 
 // Tek seferlik temizlik: kimya dışındaki kayıtlı soruları (onayla) sil
 (async () => {
@@ -91,7 +102,7 @@ async function forceUpdate() {
     // Yalnız uygulama dosyalarının önbelleği temizlenir; sorular ve belgeler (IndexedDB) yerinde kalır
     for (const r of await navigator.serviceWorker?.getRegistrations?.() || []) await r.unregister();
     for (const k of await caches.keys()) if (k.startsWith('soruevim-')) await caches.delete(k);
-    await Promise.all(['./', './index.html', './sw.js', './css/app.css', './css/paper.css', './js/app.js', './js/db.js', './js/util.js', './js/render.js', './js/design.js', './js/meb.js', './js/brans.js', ...['home', 'brand', 'pool', 'editor', 'imgtools', 'export'].map(v => `./js/views/${v}.js`)].map(u => fetch(u, { cache: 'reload' }).catch(() => { })));
+    await Promise.all(['./', './index.html', './sw.js', './css/app.css', './css/paper.css', './js/app.js', './js/db.js', './js/util.js', './js/render.js', './js/design.js', './js/meb.js', './js/brans.js', './js/bulut.js', './js/iletisim.js', ...['home', 'brand', 'pool', 'editor', 'imgtools', 'export'].map(v => `./js/views/${v}.js`)].map(u => fetch(u, { cache: 'reload' }).catch(() => { })));
   } catch { }
   location.reload();
 }

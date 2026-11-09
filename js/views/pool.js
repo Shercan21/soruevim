@@ -207,7 +207,7 @@ async function hazirModal(onDone) {
         const res = await fetch(p.url); if (!res.ok) throw new Error(res.status);
         const pkg = await res.json();
         st.textContent = 'Ekleniyor…';
-        let n = 0; for (const q of pkg.questions) { await db.put('questions', q); n++; if (n % 200 === 0) st.textContent = `Ekleniyor… ${n}/${pkg.questions.length}`; }
+        let n = 0; for (const q of pkg.questions) { await db.put('questions', q, { sessiz: true }); n++; if (n % 200 === 0) st.textContent = `Ekleniyor… ${n}/${pkg.questions.length}`; }
         st.textContent = '✓ ' + n + ' soru depoda'; toast(p.ad + ' depoya eklendi'); onDone?.();
       } catch (e) { st.textContent = navigator.onLine ? 'İndirilemedi' : 'İnternet gerekli'; btn.disabled = false; }
     } } }, have.has(p.id) ? 'Yeniden yükle' : 'Depoya ekle');

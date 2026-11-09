@@ -2,6 +2,8 @@ import { h, ICONS, fmtDate, confirmBox, toast, download, readFileAsText, modal }
 import { db, getBrand } from '../db.js';
 import { KINDS, kindInfo } from '../render.js';
 import { brans, bransSecici } from '../brans.js';
+import { iletisimAc } from '../iletisim.js';
+import { dinle, baglan, baglantiyiKes, simdiEsitle, hazirMi } from '../bulut.js';
 
 const ico = name => h('div.ico', { html: ICONS[name] });
 
@@ -29,13 +31,15 @@ export async function homeView(app) {
       h('a.card.kind-card', { href: '#/havuz', 'data-tour': 'havuz' }, ico('havuz'), h('div', h('h3', 'Soru Deposu', h('span.tag', qs.length + ' SORU')), h('p', 'Kırptığınız ve yazdığınız bütün sorular burada birikir')), h('span.arrow', '→'))),
     docs.length ? h('div', h('div.eyebrow', 'Son belgeler'),
       h('div.grid.grid-2', docs.sort((a, b) => b.updated - a.updated).slice(0, 4).map(docCard))) : null,
+    bulutKart(),
     h('div.row', { style: { marginTop: '28px', justifyContent: 'center', gap: '8px' } }, h('span.muted', '🎓 Branş: '), h('b', brans()?.ad || '—'),
       h('button.btn.btn-sm.btn-ghost', { on: { click: async () => { if (await bransSecici()) location.reload(); } } }, 'Değiştir')),
     window.__soruevim ? h('div.row.home-foot', { style: { marginTop: '12px', justifyContent: 'center', gap: '10px' } },
       window.__soruevim.themeSeg(),
       h('button.btn.btn-sm.btn-ghost', { on: { click: window.__soruevim.openFile } }, '📂 Dosyadan aç'),
       h('button.btn.btn-sm.btn-ghost', { title: 'Sorularınız ve belgeleriniz silinmez', on: { click: window.__soruevim.forceUpdate } }, '🔄 Uygulamayı güncelle'),
-      h('button.btn.btn-sm.btn-ghost', { on: { click: window.__soruevim.tour } }, '🧭 Tanıtım turu')) : null,
+      h('button.btn.btn-sm.btn-ghost', { on: { click: window.__soruevim.tour } }, '🧭 Tanıtım turu'),
+      h('button.btn.btn-sm.btn-ghost', { on: { click: iletisimAc } }, '💬 Bize yazın')) : null,
   ].filter(Boolean));
 }
 
@@ -105,4 +109,27 @@ export function startTour(i = 0) {
     h('div', { style: { fontSize: '.8rem', opacity: .7 } }, `${i + 1} / ${TOUR.length}`), h('p', { style: { margin: '6px 0 10px' } }, text),
     h('div.row', h('button.btn.btn-sm', { on: { click: () => startTour(99) } }, 'Kapat'), h('span.spacer'), h('button.btn.btn-sm.btn-accent', { on: { click: () => startTour(i + 1) } }, i + 1 < TOUR.length ? 'Sonraki →' : 'Bitir')));
   document.body.append(box);
+}
+
+// Google Drive eşitleme kartı
+function bulutKart() {
+  const kart = h('div.card', { style: { marginTop: '18px', display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' } });
+  const saat = t => t ? new Date(t).toLocaleString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+  const ciz = d => {
+    kart.innerHTML = '';
+    kart.append(h('div', { style: { fontSize: '1.8rem' } }, '☁️'),
+      h('div', { style: { flex: '1 1 260px' } },
+        h('b', d.bagli ? 'Google Drive ile eşitleniyor' : 'Google Drive ile eşitle'),
+        h('div.small.muted', d.bagli
+          ? (d.calisiyor ? 'Eşitleniyor…' : d.hata ? '⚠ ' + d.hata : 'Son eşitleme: ' + saat(d.son))
+          : 'İsteğe bağlı. Sorularınız ve belgeleriniz kendi Google Drive’ınızda saklanır; telefon ve bilgisayarda aynı depoyu kullanırsınız. Giriş yapmazsanız her şey yalnızca bu cihazda kalır.')),
+      d.bagli
+        ? h('div.row', { style: { gap: '6px' } },
+            h('button.btn.btn-sm', { disabled: d.calisiyor, on: { click: () => simdiEsitle({ sessiz: false }) } }, d.hata ? '🔑 Yeniden bağlan' : '🔄 Şimdi eşitle'),
+            h('button.btn.btn-sm.btn-ghost', { on: { click: () => baglantiyiKes() } }, 'Bağlantıyı kes'))
+        : h('button.btn.btn-primary', { disabled: d.calisiyor || !hazirMi(), title: hazirMi() ? '' : 'Yakında', on: { click: () => baglan() } }, d.calisiyor ? 'Bağlanıyor…' : 'Google ile bağlan'));
+  };
+  const kapat = dinle(ciz);
+  setTimeout(() => { const t = setInterval(() => { if (!kart.isConnected) { kapat(); clearInterval(t); } }, 5000); }, 1000);
+  return kart;
 }
