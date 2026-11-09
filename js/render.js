@@ -445,7 +445,7 @@ async function renderDocOnce(host, doc, qmap, brand, { teacher = false, small = 
   const kind = doc.kind;
   const all = [];
   let pno = 1;
-  const kits = ['test', 'deneme', 'yazili'].includes(kind) ? (ayar.kitapciklar?.length ? ayar.kitapciklar : ['A']) : [''];
+  const kits = ['test', 'deneme', 'yazili'].includes(kind) && ayar.kitapciklar?.[0] !== '-' ? (ayar.kitapciklar?.length ? ayar.kitapciklar : ['A']) : [''];
   const tur = kind === 'deneme' ? denemeTuru(doc.meta?.tur) : null;
   const nSik = tur ? tur.sik : 5;
   const keyGroupsByKit = {};
@@ -560,7 +560,7 @@ async function renderDocOnce(host, doc, qmap, brand, { teacher = false, small = 
   // Optik form
   if (ayar.optik && ['test', 'deneme'].includes(kind)) {
     for (const [kit, groups] of Object.entries(keyGroupsByKit)) {
-      const content = h('div', h('div.optik-head', h('div', 'Adı Soyadı'), h('div', 'Numara'), h('div', 'Kitapçık: ' + (kit || 'A'))));
+      const content = h('div', h('div.optik-head', ...[h('div', 'Adı Soyadı'), h('div', 'Numara'), kit ? h('div', 'Kitapçık: ' + kit) : null].filter(Boolean)));
       for (const g of groups) {
         if (g.name) content.append(h('div.konu-title', g.name));
         content.append(h('div.optik', { style: { marginBottom: '4mm' } }, g.items.map(([n]) => h('div.orow', h('span.n', n), LETTERS.slice(0, nSik).map(L => h('span.bub', L))))));

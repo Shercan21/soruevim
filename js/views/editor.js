@@ -577,7 +577,7 @@ export async function editorView(app, { id }) {
         sel('Çözümler', a, 'cozumler', { yok: 'Gösterme', alt: 'Her sorunun altında', sonda: 'Sonda, ayrı sayfalarda' }),
         k === 'test' || k === 'banka' ? sel('Cevap anahtarı nereye basılsın?', a, 'anahtarYeri', { ayri: 'Ayrı sayfada', satir: 'Her sayfanın altında — tek satır', kutu: 'Her sayfanın altında — kutu içinde', sag: 'Her sayfanın sağ altında — küçük tablo', sol: 'Her sayfanın sol altında — küçük tablo' }) : h('span.small.muted', 'Anahtar her zaman ayrı sayfaya basılır; öğrencinin sayfasında görünmez.'),
         k === 'test' || k === 'deneme' ? chk('Optik form ekle', () => a.optik, v => a.optik = v) : null,
-        k === 'test' || k === 'deneme' || k === 'yazili' ? h('div.row', h('b.small', 'Kitapçık'), segPick([['A', 'A'], ['B', 'B'], ['AB', 'A + B']], (a.kitapciklar || ['A']).join(''), v => { a.kitapciklar = v.split(''); changed(); }), h('span.small.muted', 'B: aynı sorular, karışık sıra ve şıklar')) : null,
+        k === 'test' || k === 'deneme' || k === 'yazili' ? h('div.row', h('b.small', 'Kitapçık'), segPick([['-', 'Yok'], ['A', 'A'], ['B', 'B'], ['AB', 'A + B']], (a.kitapciklar || ['A']).join(''), v => { a.kitapciklar = v.split(''); changed(); }), h('span.small.muted', 'B: aynı sorular, karışık sıra ve şıklar')) : null,
         chk(k === 'deneme' ? 'Öne kapak sayfası — ders / soru / süre tablosu' : k === 'banka' ? 'Öne kapak — ders, sınıf, konu listesi' : 'Öne kapak ekle', () => a.kapak, v => a.kapak = v),
         k === 'banka' ? chk('İçindekiler sayfası ekle', () => a.icindekiler, v => a.icindekiler = v) : null,
         k === 'banka' ? chk('Konu başlıklarıyla böl', () => a.konuBaslik !== false, v => a.konuBaslik = v) : null,
