@@ -122,8 +122,9 @@ function sheetEl(ctx) {
   const [pw, ph] = PAPERS[ayar.kagit] || PAPERS.A4;
   const s = h('div.sheet.qn-' + look.soruNo + '.tpl-' + look.sablon + '.pn-' + look.sayfaNo);
   const st = s.style;
-  st.setProperty('--acc', brand.renk || '#4C3BB5');
-  st.setProperty('--acc2', brand.renk2 || brand.renk || '#C2418F');
+  const r1 = look.renk || brand.renk || '#4C3BB5', r2 = look.renk2 || (look.renk ? '' : brand.renk2) || r1 || '#C2418F';
+  st.setProperty('--acc', r1);
+  st.setProperty('--acc2', r2);
   st.setProperty('--pf', (BODY_FONTS[look.govdeFont] || BODY_FONTS.yayinevi).css);
   st.setProperty('--tf', (TITLE_FONTS[look.baslikFont] || TITLE_FONTS.grotesk).css);
   const basePt = (ayar.punto ? +ayar.punto : (SIZES[look.boyut] || SIZES.lise).pt * ((ayar.olcek || 100) / 100)) * (ctx.small ? .92 : 1);

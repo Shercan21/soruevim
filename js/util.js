@@ -110,3 +110,29 @@ export const ICONS = {
   havuz: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>',
   sinav: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19.1 4.9a10 10 0 0 1 0 14.2M4.9 19.1a10 10 0 0 1 0-14.2"/></svg>',
 };
+
+// Renk paleti: tıklayınca açılan renk seçici (hazır renkler + özel renk)
+export const PALET = ['#4C3BB5', '#3A0CA3', '#6C3FA0', '#9D4EDD', '#C2418F', '#F72585', '#D62828', '#E63946', '#C0392B', '#E76F51', '#D9771E', '#F77F00', '#E9C46A', '#5F7A00', '#1E7B4F', '#08A045', '#2A9D8F', '#0077B6', '#00B4D8', '#2E6DB4', '#1B4B7F', '#264653', '#222831', '#6B7280'];
+export function renkSec(deger, onSec, { bos = '', baslik = '' } = {}) {
+  const kok = h('div', { style: { position: 'relative', display: 'inline-block' } });
+  const yuvarlak = c => ({ width: '26px', height: '26px', borderRadius: '50%', background: c || 'repeating-conic-gradient(#ddd 0 25%,#fff 0 50%) 50%/10px 10px', border: '2px solid #fff', boxShadow: '0 0 0 1px var(--line)', cursor: 'pointer', padding: 0 });
+  const dugme = h('button.btn.btn-sm', { type: 'button', title: baslik || 'Renk seç', style: { display: 'inline-flex', alignItems: 'center', gap: '8px' } });
+  let acik = null;
+  const ciz = () => { dugme.innerHTML = ''; dugme.append(h('span', { style: yuvarlak(deger) }), deger ? deger.toUpperCase() : (bos || 'Seçilmedi'), ' ▾'); };
+  const kapat = () => { acik?.remove(); acik = null; document.removeEventListener('mousedown', disari, true); };
+  const disari = e => { if (!kok.contains(e.target)) kapat(); };
+  const sec = c => { deger = c; ciz(); onSec(c); kapat(); };
+  dugme.onclick = () => {
+    if (acik) return kapat();
+    const ozel = h('input', { type: 'color', value: deger || '#4C3BB5', style: { width: '40px', height: '30px', padding: 0, border: 0, background: 'none', cursor: 'pointer' }, on: { input: e => { deger = e.target.value; ciz(); onSec(deger); } } });
+    acik = h('div', { style: { position: 'absolute', zIndex: 50, top: 'calc(100% + 6px)', left: 0, background: 'var(--card)', border: '1px solid var(--line)', borderRadius: '12px', padding: '10px', boxShadow: '0 8px 24px rgba(0,0,0,.18)', width: '232px' } },
+      h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '8px' } },
+        PALET.map(c => h('button', { type: 'button', title: c, style: { ...yuvarlak(c), width: '28px', height: '28px', outline: c.toLowerCase() === (deger || '').toLowerCase() ? '2px solid var(--ink)' : '' }, on: { click: () => sec(c) } }))),
+      h('div.row', { style: { marginTop: '10px', gap: '8px', alignItems: 'center' } }, ozel, h('span.small', 'Özel renk'),
+        bos ? h('button.btn.btn-sm.btn-ghost', { type: 'button', style: { marginLeft: 'auto' }, on: { click: () => sec('') } }, bos) : null));
+    kok.append(acik);
+    setTimeout(() => document.addEventListener('mousedown', disari, true));
+  };
+  ciz(); kok.append(dugme);
+  return kok;
+}

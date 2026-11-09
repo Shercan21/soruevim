@@ -1,4 +1,4 @@
-import { h, toast, uid, confirmBox, readFileAsDataURL, readFileAsText, shrinkImage, download, modal, $ } from '../util.js';
+import { h, toast, uid, confirmBox, readFileAsDataURL, readFileAsText, shrinkImage, download, modal, $, renkSec } from '../util.js';
 import { db, getBrand } from '../db.js';
 import { KINDS, VARIANTS, kindInfo, DENEME_TURLERI, BRANSLAR, denemeTuru, renderDoc, defaultAyar, setKatex, FOY_LABELS, lookOf } from '../render.js';
 import { HEADERS, TEMPLATES, PAGE_NUMS, Q_NUMS, BODY_FONTS, TITLE_FONTS, FOOTERS, SIZES, PAPERS, ensureFonts, loadKatex } from '../design.js';
@@ -838,6 +838,9 @@ export async function editorView(app, { id }) {
         h('label.fld', 'Karekod bağlantısı', h('input.inp', { value: a.karekod || '', placeholder: 'https://…', on: { change: e => { a.karekod = e.target.value.trim(); changed(); } } }), h('span.small.muted', { style: { fontWeight: 400 } }, 'Öğrencinin kâğıdında görünmez; yalnız cevap anahtarı sayfasına basılır.'))) : null,
       sec('Sayfa tasarımı', false,
         h('p.small.muted', { style: { margin: 0 } }, 'Yalnız bu belgeye uygulanır; boş bırakılanlar marka kimliğinden gelir.'),
+        h('div.row', { style: { gap: '14px', flexWrap: 'wrap' } },
+          h('label.fld', 'Ana renk', renkSec((doc.gorunum ||= {}).renk || '', c => { if (c) doc.gorunum.renk = c; else delete doc.gorunum.renk; changed(); }, { bos: 'Kurum kimliğinden', baslik: 'Başlık, numaralar ve şablon bu renkte' })),
+          h('label.fld', 'İkinci renk', renkSec(doc.gorunum.renk2 || '', c => { if (c) doc.gorunum.renk2 = c; else delete doc.gorunum.renk2; changed(); }, { bos: 'Kurum kimliğinden', baslik: 'NOT / DİKKAT kutuları bu renkte' }))),
         ...[['baslik', 'Başlık tasarımı', HEADERS], ['sablon', 'Sayfa şablonu', TEMPLATES], ['soruNo', 'Soru numarası', Q_NUMS], ['sayfaNo', 'Sayfa numarası', PAGE_NUMS], ['govdeFont', 'Gövde yazı tipi', BODY_FONTS], ['baslikFont', 'Başlık yazı tipi', TITLE_FONTS], ['altBilgi', 'Alt bilgi', FOOTERS], ['boyut', 'Yazı boyutu', SIZES]].map(([key, label, opts]) => {
           doc.gorunum ||= {};
           return h('label.fld', label, h('select.inp', { value: doc.gorunum[key] || '', on: { change: e => { if (e.target.value) doc.gorunum[key] = e.target.value; else delete doc.gorunum[key]; changed(); } } }, h('option', { value: '' }, '— Kurum kimliğinden —'), Object.entries(opts).map(([v, l]) => h('option', { value: v }, typeof l === 'string' ? l : l.ad))));

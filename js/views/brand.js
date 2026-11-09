@@ -1,4 +1,4 @@
-import { h, toast, readFileAsDataURL, shrinkImage, uid, modal, loadImg } from '../util.js';
+import { h, toast, readFileAsDataURL, shrinkImage, uid, modal, loadImg, renkSec } from '../util.js';
 import { db, getBrand } from '../db.js';
 import { renderDoc } from '../render.js';
 import { PRESETS, PRESET_CATS, HEADERS, TEMPLATES, PAGE_NUMS, Q_NUMS, BODY_FONTS, TITLE_FONTS, FOOTERS, SIZES, SOZLER, SIMGELER, DEFAULT_LOOK, ensureFonts } from '../design.js';
@@ -53,7 +53,7 @@ export async function brandView(app, { inModal = false } = {}) {
         const active = b.renk === p.renk && b.look.baslik === p.look.baslik && b.look.soruNo === p.look.soruNo;
         const card = h('button', { 'data-i': i, type: 'button', style: { border: active ? '2px solid var(--orange)' : '1px solid var(--line)', borderRadius: '10px', background: '#fff', padding: '6px', cursor: 'pointer', textAlign: 'left' }, on: { click: () => {
           undoStack.push(structuredClone(b));
-          b.renk = p.renk; b.renk2 = p.renk2; b.look = { ...p.look }; changed(); drawGrid(); undoBtn.disabled = false; toast(p.ad + ' uygulandı');
+          b.renk = p.renk; b.renk2 = p.renk2; b.look = { ...p.look }; changed(); drawGrid(); renkCiz(); undoBtn.disabled = false; toast(p.ad + ' uygulandı');
         } } },
           h('div.pv', { style: { height: '150px', overflow: 'hidden', borderRadius: '6px', background: '#eee', position: 'relative' } }),
           h('div', { style: { fontWeight: 700, fontSize: '.85rem', marginTop: '4px' } }, p.ad),
@@ -63,7 +63,13 @@ export async function brandView(app, { inModal = false } = {}) {
       });
     };
     drawChips(); drawGrid();
-    pane.append(h('p.muted.small', 'Birine tıklayın, kâğıdınız hemen değişir. Logonuz, kurum adınız ve sorularınız olduğu gibi kalır. Beğenmezseniz başka birini seçin ya da geri alın.'), h('div.row', undoBtn), chips, grid);
+    const renkler = h('div.row', { style: { gap: '12px', flexWrap: 'wrap', alignItems: 'center' } });
+    const renkCiz = () => { renkler.innerHTML = ''; renkler.append(
+      h('b.small', '🎨 Şablonun rengi:'),
+      h('span.small.muted', 'Ana'), renkSec(b.renk || '', c => { undoStack.push(structuredClone(b)); b.renk = c; changed(); undoBtn.disabled = false; }, { baslik: 'Ana renk — başlık, numaralar' }),
+      h('span.small.muted', 'İkinci'), renkSec(b.renk2 || '', c => { undoStack.push(structuredClone(b)); b.renk2 = c; changed(); undoBtn.disabled = false; }, { baslik: 'İkinci renk — NOT/DİKKAT kutuları' })); };
+    renkCiz();
+    pane.append(h('p.muted.small', 'Birine tıklayın, kâğıdınız hemen değişir. Logonuz, kurum adınız ve sorularınız olduğu gibi kalır. Beğendiğiniz şablonun rengini aşağıdaki paletten değiştirebilirsiniz.'), h('div.row', undoBtn), renkler, chips, grid);
   }
 
   const mkSel = (obj, key, opts, after) => { const s = h('select.inp', { value: obj[key] ?? '', on: { change: e => { obj[key] = e.target.value; changed(); after?.(); } } }, Object.entries(opts).map(([v, l]) => h('option', { value: v }, typeof l === 'string' ? l : l.ad))); return s; };
@@ -78,7 +84,8 @@ export async function brandView(app, { inModal = false } = {}) {
 
   function drawKendim() {
     pane.innerHTML = '';
-    const colorRow = (key, presets) => h('div.row', h('input', { type: 'color', value: b[key] || b.renk, style: { width: '52px', height: '36px', padding: '2px' }, on: { input: e => { b[key] = e.target.value; changed(); } } }),
+    const colorRow = (key) => renkSec(b[key] || '', c => { b[key] = c; changed(); });
+    const _eskiColorRow = (key, presets) => h('div.row', h('input', { type: 'color', value: b[key] || b.renk, style: { width: '52px', height: '36px', padding: '2px' }, on: { input: e => { b[key] = e.target.value; changed(); } } }),
       ...presets.map(c => h('button', { title: c, style: { width: '24px', height: '24px', borderRadius: '50%', border: '2px solid #fff', boxShadow: '0 0 0 1px var(--line)', background: c, cursor: 'pointer' }, on: { click: () => { b[key] = c; changed(); drawKendim(); } } })));
     const damgaList = h('div.row');
     const drawDamgalar = () => { damgaList.innerHTML = ''; (b.damgalar || []).forEach(d => damgaList.append(h('div', { style: { position: 'relative' } }, h('img', { src: d.img, style: { width: '64px', height: '64px', objectFit: 'contain', background: '#fff', border: '1px solid var(--line)', borderRadius: '8px' } }), h('button.icon-btn', { style: { position: 'absolute', top: '-6px', right: '-6px', background: '#fff', borderRadius: '50%' }, on: { click: () => { b.damgalar = b.damgalar.filter(x => x !== d); changed(); drawDamgalar(); } } }, '✕')))); };
