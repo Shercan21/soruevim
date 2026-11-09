@@ -322,66 +322,153 @@ async function kazanimCard(kind, seciliSoruVar) {
 }
 
 // ---------- Senaryodan yazılı kurma (MEB konu-soru dağılım tabloları) ----------
+const DONEMLER = ['1. Dönem', '2. Dönem'], YAZILILAR = ['1. Yazılı', '2. Yazılı', '3. Yazılı'];
 function senaryoUygula(d, st, sc) {
-  const [donem, sira] = st.sinav.split(/(?<=Dönem) /);
-  d.title = `${st.sinif} ${st.ders} Dersi ${st.sinav}`;
+  d.title = `${st.sinif} ${st.ders} Dersi ${st.donem} ${st.yazili}`;
   d.meta.sinif = st.sinif; d.meta.ders = st.ders;
-  Object.assign(d.ayar, { donem, testAdi: sira, yil: SENARYO_YILI, ogrenmeCiktilari: true, puanEtiketi: true });
-  d.senaryo = { sinav: st.sinav, ad: sc.ad };
-  const qi = d.items; const base = Math.floor(100 / qi.length), extra = 100 - base * qi.length;
-  qi.forEach((it, i) => { it.puan = base + (i >= qi.length - extra ? 1 : 0); });
+  Object.assign(d.ayar, { donem: st.donem, testAdi: st.yazili, yil: SENARYO_YILI, ogrenmeCiktilari: true, puanEtiketi: true });
+  d.senaryo = { sinav: st.donem + ' ' + st.yazili, ad: sc.ad };
+  const qi = d.items;
+  const elle = qi.filter(it => it.puan > 0), kalan = 100 - elle.reduce((a, b) => a + b.puan, 0), oto = qi.filter(it => !(it.puan > 0));
+  if (oto.length) { const base = Math.max(0, Math.floor(kalan / oto.length)), extra = Math.max(0, kalan - base * oto.length); oto.forEach((it, i) => { it.puan = base + (i >= oto.length - extra ? 1 : 0); }); }
   return d;
 }
 
+// Yazılı kurucu: dönem → sınav → senaryo → kazanım + soru sayısı (hepsi seçimle)
 async function senaryoCard(onKur) {
   const all = await db.all('questions');
   const last = (await db.kvGet('senaryoSecim')) || {};
-  const st = { sinif: last.sinif || '9. Sınıf', ders: dersIzinli(last.ders) && last.ders ? last.ders : (anaDers() || last.ders || 'Kimya'), sinav: last.sinav || '', sen: 0 };
+  let ozel = (await db.kvGet('ozelSenaryolar')) || [];
+  const [ld, ly] = (last.sinav || '').split(/(?<=Dönem) /);
+  const st = { sinif: last.sinif || '9. Sınıf', ders: dersIzinli(last.ders) && last.ders ? last.ders : (anaDers() || last.ders || 'Kimya'),
+    donem: DONEMLER.includes(ld) ? ld : DONEMLER[0], yazili: YAZILILAR.includes(ly) ? ly : YAZILILAR[0], sen: '', sayi: {}, puan: {}, mod: last.mod || 'oto' };
   const box = h('div');
-  const sel = (opts, val, on) => h('select.inp', { on: { change: e => on(e.target.value) } }, opts.map(o => h('option', { value: o, selected: o === val }, o)));
+  const sel = (opts, val, on, attrs = {}) => h('select.inp', { ...attrs, on: { change: e => on(e.target.value) } }, opts.map(o => Array.isArray(o) ? h('option', { value: o[0], selected: o[0] === val }, o[1]) : h('option', { value: o, selected: o === val }, o)));
   const pool = kod => all.filter(q => q.kazanim === kod && q.sinif === st.sinif && (q.ders || '') === st.ders);
+  const mebListe = () => { const l = SENARYOLAR[st.sinif]?.[st.ders]?.[st.donem + ' ' + st.yazili]; return Array.isArray(l) ? l : []; };
+  const ulke = () => SENARYOLAR[st.sinif]?.[st.ders]?.[st.donem + ' ' + st.yazili]?.ulke;
+  const ozelListe = () => ozel.filter(o => o.sinif === st.sinif && o.ders === st.ders);
+  const kazanimlar = () => (OGRENME_CIKTILARI[st.sinif] || []).filter(k => k.ders === st.ders);
+  const senaryoYukle = () => {
+    st.sayi = {}; st.puan = {};
+    const [tip, i] = st.sen.split(':');
+    const sc = tip === 'meb' ? mebListe()[+i] : tip === 'oz' ? ozel.find(o => o.id === i) : null;
+    if (sc) { Object.assign(st.sayi, sc.d); Object.assign(st.puan, sc.puan || {}); }
+  };
+  const varsayilanSen = () => { const m = mebListe(); st.sen = m.length ? 'meb:0' : ozelListe()[0] ? 'oz:' + ozelListe()[0].id : 'yeni'; senaryoYukle(); };
+
   const draw = () => {
     box.innerHTML = '';
-    const data = SENARYOLAR[st.sinif]?.[st.ders] || null;
-    const mevcut = dersSuz(Object.keys(SENARYOLAR[st.sinif] || {}));
-    const sinavlar = data ? Object.keys(data) : [];
-    if (!sinavlar.includes(st.sinav)) st.sinav = sinavlar[0] || '';
-    box.append(h('div.grid.grid-3', { style: { gap: '8px' } },
-      h('label.fld', 'Sınıf', sel(SINIFLAR.slice(4, 12), st.sinif, v => { st.sinif = v; st.sen = 0; draw(); })),
-      h('label.fld', 'Ders', h('select.inp', { on: { change: e => { st.ders = e.target.value; st.sen = 0; draw(); } } },
-        mevcut.length ? h('optgroup', { label: 'Senaryosu olan dersler' }, mevcut.map(o => h('option', { value: o, selected: o === st.ders }, o))) : null,
-        h('optgroup', { label: 'Diğer dersler' }, dersListesi().filter(x => !mevcut.includes(x)).map(o => h('option', { value: o, selected: o === st.ders }, o))))),
-      h('label.fld', 'Sınav', sinavlar.length ? sel(sinavlar, st.sinav, v => { st.sinav = v; st.sen = 0; draw(); }) : h('select.inp', { disabled: true }, h('option', '—')))));
-    if (!data) { box.append(h('p.small.muted', { style: { marginTop: '10px' } }, `${st.sinif} ${st.ders} için ${SENARYO_YILI} senaryo tablosu yok` + (mevcut.length ? ` (bu sınıfta olanlar: ${mevcut.join(', ')}).` : '. 8. sınıf ve 12. sınıfta (kimya dışında) OYSS senaryosu yayımlanmadı.') + ' Boş kâğıtla başlayıp depodan soru ekleyebilirsiniz.')); return; }
-    const list = data[st.sinav];
-    if (list?.ulke) { box.append(h('p.small', { style: { marginTop: '10px' } }, `${st.sinif} ${st.ders} ${st.sinav} ülke genelinde tek ortak sınav olarak yapılır; okul senaryosu yok.`)); return; }
-    box.append(h('div.row', { style: { margin: '10px 0 6px', gap: '6px', flexWrap: 'wrap' } }, list.map((x, i) => h('button.btn.btn-sm' + (i === st.sen ? '.btn-primary' : ''), { on: { click: () => { st.sen = i; draw(); } } }, `${x.ad} · ${Object.values(x.d).reduce((a, b) => a + b, 0)} soru`))));
-    const sc = list[st.sen];
-    let eksik = 0;
-    const rows = Object.entries(sc.d).map(([kod, n]) => { const p = pool(kod).length; if (p < n) eksik += n - p; return h('tr', h('td', h('b', kod), h('div.small.muted', ciktiMetni(kod))), h('td', { style: { textAlign: 'center' } }, h('b', String(n))), h('td', { style: { textAlign: 'center', color: p < n ? 'var(--bad)' : 'var(--ok)' } }, 'depoda ' + p)); });
-    box.append(h('table.table', h('tr', h('th', 'Öğrenme çıktısı'), h('th', 'Soru'), h('th', '')), rows));
-    if (eksik) box.append(h('p.small', { style: { color: 'var(--bad)' } }, `Depoda ${eksik} soru eksik; o çıktılar için yer tutucu soru konur, kâğıtta doldurursunuz.`));
-    box.append(h('button.btn.btn-primary', { style: { width: '100%', marginTop: '8px', padding: '12px' }, on: { click: () => kur(sc) } }, 'Soruları yerleştir →'));
+    const dersler = [...new Set([...dersSuz(Object.keys(SENARYOLAR[st.sinif] || {})), ...dersListesi()])];
+    if (!dersler.includes(st.ders) && dersler.length) { st.ders = dersler[0]; varsayilanSen(); }
+    const derslerSec = dersler.length <= 1
+      ? h('select.inp', { disabled: true, title: 'Branşınızın dersi' }, h('option', st.ders))
+      : h('select.inp', { on: { change: e => { st.ders = e.target.value; varsayilanSen(); draw(); } } }, dersler.map(o => h('option', { value: o, selected: o === st.ders }, o)));
+    box.append(h('div.grid', { style: { gap: '8px', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))' } },
+      h('label.fld', 'Sınıf', sel(SINIFLAR.slice(4, 12), st.sinif, v => { st.sinif = v; varsayilanSen(); draw(); })),
+      h('label.fld', 'Ders', derslerSec),
+      h('label.fld', 'Dönem', sel(DONEMLER, st.donem, v => { st.donem = v; varsayilanSen(); draw(); })),
+      h('label.fld', 'Sınav', sel(YAZILILAR, st.yazili, v => { st.yazili = v; varsayilanSen(); draw(); }))));
+    if (ulke()) box.append(h('p.small', { style: { marginTop: '8px' } }, `Bu sınav MEB tarafından ülke genelinde ortak yapılıyor; isterseniz aşağıdan kendi tablonuzu kurabilirsiniz.`));
+
+    // Senaryo seçimi
+    const m = mebListe(), oz = ozelListe();
+    const topla = d => Object.values(d).reduce((a, b) => a + (+b || 0), 0);
+    const secenek = [
+      ...m.map((x, i) => ['meb:' + i, `MEB · ${x.ad} (${topla(x.d)} soru)`]),
+      ...oz.map(x => ['oz:' + x.id, `Benim · ${x.ad} — ${x.sinav} (${topla(x.d)} soru)`]),
+      ['yeni', '✏️ Kendim seçeceğim (boş tablo)']];
+    if (!secenek.some(o => o[0] === st.sen)) varsayilanSen();
+    box.append(h('div.grid', { style: { gap: '8px', marginTop: '8px', gridTemplateColumns: '2fr 1fr' } },
+      h('label.fld', 'Senaryo' + (m.length ? '' : ' — bu sınav için MEB senaryosu yok'), sel(secenek, st.sen, v => { st.sen = v; senaryoYukle(); draw(); })),
+      h('label.fld', 'Sorular nasıl seçilsin?', sel([['oto', 'Otomatik (depodan)'], ['elle', 'Elle — ben seçeceğim']], st.mod, v => { st.mod = v; }))));
+
+    // Kazanım tablosu: işaretle + soru sayısı + puan (seçimle)
+    const kz = kazanimlar();
+    const tablo = h('div', { style: { maxHeight: '46vh', overflow: 'auto', border: '1px solid var(--line)', borderRadius: '10px', marginTop: '10px' } });
+    const ozet = h('div.small', { style: { margin: '8px 0', fontWeight: 600 } });
+    const ozetCiz = () => {
+      const n = topla(st.sayi), elle = Object.entries(st.puan).filter(([k, p]) => st.sayi[k] && p).reduce((a, [k, p]) => a + p * st.sayi[k], 0);
+      let eksik = 0; for (const [k, v] of Object.entries(st.sayi)) eksik += Math.max(0, v - pool(k).length);
+      ozet.innerHTML = '';
+      ozet.append(`Toplam ${n} soru · ${Object.values(st.sayi).filter(Boolean).length} kazanım`, elle ? ` · elle verilen puan ${elle}` + (elle > 100 ? ' ⚠ 100’ü aşıyor' : '') : '',
+        eksik ? h('span', { style: { color: 'var(--bad)' } }, ` · depoda ${eksik} soru eksik (yerine “soru yazın” kutusu konur)`) : '');
+    };
+    let tema = null;
+    const ozelKodlar = Object.keys(st.sayi).filter(k => !kz.some(x => x.kod === k));
+    const satirlar = [...kz, ...ozelKodlar.map(kod => ({ kod, metin: ciktiMetni(kod), tema: 'Diğer' }))];
+    if (!satirlar.length) tablo.append(h('p.small.muted', { style: { padding: '10px' } }, 'Bu sınıf ve ders için kazanım listesi yok. Ana sayfadaki “kendi kazanımlarım” ile ekleyebilirsiniz.'));
+    for (const k of satirlar) {
+      if (k.tema && k.tema !== tema) { tema = k.tema; tablo.append(h('div.small', { style: { padding: '6px 10px', background: 'var(--cream-2)', fontWeight: 700, position: 'sticky', top: 0 } }, tema)); }
+      const p = pool(k.kod).length;
+      const satir = h('div', { style: { display: 'grid', gridTemplateColumns: '24px 1fr 96px 120px', gap: '8px', alignItems: 'center', padding: '6px 10px', borderTop: '1px solid var(--line)' } });
+      const ciz = () => {
+        const n = st.sayi[k.kod] || 0;
+        satir.style.background = n ? 'color-mix(in srgb,var(--navy) 8%,transparent)' : '';
+        satir.innerHTML = '';
+        satir.append(
+          h('input', { type: 'checkbox', checked: !!n, on: { change: e => { if (e.target.checked) st.sayi[k.kod] = 1; else delete st.sayi[k.kod]; ciz(); ozetCiz(); } } }),
+          h('div', h('b.small', k.kod), ' ', h('span.small', k.metin), h('div.small', { style: { color: p ? 'var(--ok)' : 'var(--muted)' } }, `depoda ${p} soru`)),
+          sel([[0, '—'], ...[1, 2, 3, 4, 5, 6, 7, 8].map(x => [x, x + ' soru'])].map(([v, t]) => [String(v), t]), String(n), v => { if (+v) st.sayi[k.kod] = +v; else delete st.sayi[k.kod]; ciz(); ozetCiz(); }, { title: 'Soru sayısı' }),
+          n ? sel([['0', 'Eşit puan'], ...[2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30].map(x => [String(x), x + ' puan'])], String(st.puan[k.kod] || 0), v => { if (+v) st.puan[k.kod] = +v; else delete st.puan[k.kod]; ozetCiz(); }, { title: 'Soru başına puan' }) : h('span'));
+      };
+      ciz(); tablo.append(satir);
+    }
+    box.append(tablo, ozet); ozetCiz();
+
+    // Kaydet / sil / kur
+    const [tip, oid] = st.sen.split(':');
+    const kaydet = async () => {
+      if (!topla(st.sayi)) { toast('Önce kazanım seçin'); return; }
+      const adInp = h('input.inp', { value: tip === 'oz' ? ozel.find(o => o.id === oid)?.ad || '' : `${st.donem} ${st.yazili} senaryom`, style: { width: '100%' } });
+      const mm = modal('Senaryoyu kaydet', h('div', h('p.small.muted', 'Bu tabloyu adıyla saklayın; sonra senaryo listesinde “Benim” olarak çıkar.'), adInp), { actions: [
+        tip === 'oz' ? h('button.btn', { on: { click: () => yaz(false) } }, 'Yeni olarak kaydet') : null,
+        h('button.btn.btn-primary', { on: { click: () => yaz(tip === 'oz') } }, tip === 'oz' ? 'Güncelle' : 'Kaydet')].filter(Boolean) });
+      async function yaz(guncelle) {
+        const kayit = { id: guncelle ? oid : uid(), ad: adInp.value.trim() || 'Senaryom', sinif: st.sinif, ders: st.ders, sinav: st.donem + ' ' + st.yazili, d: { ...st.sayi }, puan: { ...st.puan } };
+        ozel = guncelle ? ozel.map(o => o.id === oid ? kayit : o) : [...ozel, kayit];
+        await db.kvSet('ozelSenaryolar', ozel); st.sen = 'oz:' + kayit.id; mm.close(); toast('Senaryo kaydedildi'); draw();
+      }
+    };
+    const sil = async () => { if (!await confirmBox('Bu senaryo silinsin mi?', 'Sil')) return; ozel = ozel.filter(o => o.id !== oid); await db.kvSet('ozelSenaryolar', ozel); varsayilanSen(); draw(); };
+    box.append(h('div.row', { style: { gap: '8px', flexWrap: 'wrap', marginTop: '4px' } },
+      h('button.btn', { on: { click: kaydet } }, tip === 'oz' ? '💾 Senaryoyu güncelle' : '💾 Senaryom olarak kaydet'),
+      tip === 'oz' ? h('button.btn.btn-ghost', { on: { click: sil } }, '🗑 Sil') : null,
+      h('span.spacer'),
+      h('button.btn.btn-primary', { style: { padding: '12px 18px' }, on: { click: kur } }, 'Soruları yerleştir →')));
   };
-  const kur = async sc => {
-    await db.kvSet('senaryoSecim', { sinif: st.sinif, ders: st.ders, sinav: st.sinav });
-    const qids = [], used = (await db.all('documents')).flatMap(d => (d.items || []).map(i => i.qid));
-    for (const [kod, n] of Object.entries(sc.d)) {
-      const p = pool(kod).sort((a, b) => (used.includes(a.id) - used.includes(b.id)) || Math.random() - .5);
-      qids.push(...p.slice(0, n).map(q => q.id));
-      for (let k = p.length; k < n; k++) {
+
+  const kur = async () => {
+    const satir = Object.entries(st.sayi).filter(([, n]) => n > 0);
+    if (!satir.length) { toast('En az bir kazanım seçin'); return; }
+    await db.kvSet('senaryoSecim', { sinif: st.sinif, ders: st.ders, sinav: st.donem + ' ' + st.yazili, mod: st.mod });
+    const items = [], used = (await db.all('documents')).flatMap(d => (d.items || []).map(i => i.qid));
+    let sira = 0;
+    for (const [kod, n] of satir) {
+      sira++;
+      let secilen;
+      if (st.mod === 'elle') {
+        secilen = await pickQuestions({ title: `${sira}/${satir.length} · ${kod} — ${n} soru seçin`, filter: q => q.kazanim === kod && q.sinif === st.sinif && (q.ders || '') === st.ders, max: n });
+        if (secilen === null) return;
+      } else secilen = pool(kod).sort((a, b) => (used.includes(a.id) - used.includes(b.id)) || Math.random() - .5).slice(0, n).map(q => q.id);
+      for (const qid of secilen) items.push({ qid, puan: st.puan[kod] || 0 });
+      for (let k = secilen.length; k < n; k++) {
         const q = { id: uid(), type: 'klasik', text: `(${kod} için soru yazın: ${ciktiMetni(kod)})`, choices: [], answer: '', ders: st.ders, sinif: st.sinif, kazanim: kod, zorluk: 2, created: Date.now(), yerTutucu: true };
-        await db.put('questions', q); qids.push(q.id);
+        await db.put('questions', q); items.push({ qid: q.id, puan: st.puan[kod] || 0 });
       }
     }
-    const d = onKur ? null : newDoc('yazili', { qids });
-    if (onKur) return onKur(senaryoUygula({ items: qids.map(qid => ({ qid, puan: 0 })), meta: {}, ayar: {} }, st, sc));
+    const [tip, i] = st.sen.split(':');
+    const sc = { ad: tip === 'meb' ? mebListe()[+i]?.ad : tip === 'oz' ? ozel.find(o => o.id === i)?.ad : 'Kendi seçimim' };
+    if (onKur) return onKur(senaryoUygula({ items, meta: {}, ayar: {} }, st, sc));
+    const d = newDoc('yazili', { qids: items.map(x => x.qid) });
+    d.items = d.items.map((it, j) => ({ ...it, puan: items[j].puan }));
     senaryoUygula(d, st, sc);
     await db.put('documents', d); location.hash = '#/belge/' + d.id;
   };
+  varsayilanSen();
   draw();
-  return h('div.card', { style: { marginTop: '12px' } }, h('h3', { style: { marginTop: 0 } }, '📋 MEB dağılım tablosundan hazırla'),
-    h('p.small.muted', `MEB ${SENARYO_YILI} ortak yazılı konu-soru dağılım tablolarından birini seçin; sorular depodaki etiketli sorulardan yerleşir.`), box);
+  return h('div.card', { style: { marginTop: '12px' } }, h('h3', { style: { marginTop: 0 } }, '📋 Yazılıyı hazırla'),
+    h('p.small.muted', `Dönemi, sınavı ve senaryoyu seçin. MEB ${SENARYO_YILI} tabloları hazır gelir; kazanımları ve soru sayılarını dilediğiniz gibi değiştirip kendi senaryonuz olarak saklayabilirsiniz.`), box);
 }
 
 // ---------- Editör ----------
@@ -485,14 +572,14 @@ export async function editorView(app, { id }) {
       doc.items = r.items; doc.title = r.title; doc.senaryo = r.senaryo; Object.assign(doc.meta, r.meta); Object.assign(doc.ayar, r.ayar);
       m.close(); await reloadQ(); drawAll(); changed(); toast('Kâğıt senaryoya göre kuruldu');
     });
-    m = modal('MEB dağılım tablosundan hazırla', card, { wide: true });
+    m = modal('Yazılıyı hazırla', card, { wide: true });
   }
 
   function drawItems() {
     const items = doc.items;
     const qItems = items.filter(i => i.type !== 'kok');
     const total = qItems.reduce((a, b) => a + (+b.puan || 0), 0);
-    if (doc.kind === 'yazili') content.append(h('button.btn.btn-accent', { style: { width: '100%', marginBottom: '12px' }, on: { click: senaryoAc } }, doc.senaryo ? `📋 Senaryo: ${doc.senaryo.sinav} · ${doc.senaryo.ad} — değiştir` : '📋 MEB tablosundan hazırla (sınıf · ders · senaryo)'));
+    if (doc.kind === 'yazili') content.append(h('button.btn.btn-accent', { style: { width: '100%', marginBottom: '12px' }, on: { click: senaryoAc } }, doc.senaryo ? `📋 Senaryo: ${doc.senaryo.sinav} · ${doc.senaryo.ad} — değiştir` : '📋 Dönem · sınav · senaryo seç'));
     content.append(h('div.row', h('h3', { style: { margin: 0 } }, 'Kâğıt (' + qItems.length + ' soru)'), h('span.spacer'),
       h('button.btn.btn-sm.btn-primary', { on: { click: async () => { const ids = await pickQuestions({ exclude: qItems.map(i => i.qid), preset: filterForDoc() }); if (!ids?.length) return; await reloadQ(); ids.forEach(qid => items.push({ qid, puan: 0 })); if (doc.kind === 'yazili') equalize(); drawContent(); changed(); } } }, '+ Depodan'),
       h('button.btn.btn-sm', { on: { click: () => editQuestion(null, async q => { await reloadQ(); items.push({ qid: q.id, puan: 0 }); if (doc.kind === 'yazili') equalize(); drawContent(); changed(); }, { preset: { sinif: doc.meta.sinif, ders: doc.meta.ders, konu: doc.meta.konu } }) } }, '+ Yeni yaz'),

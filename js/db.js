@@ -36,7 +36,7 @@ const wrap = req => new Promise((res, rej) => { req.onsuccess = () => res(req.re
 // Bulut eşitlemesi için değişiklik izleme: sorular ve belgeler zaman damgası (_t) alır,
 // silinenler "mezar" olarak kaydedilir; bazı ayarların değişme zamanı tutulur.
 export const IZLENEN = ['questions', 'documents'];
-export const KV_IZLENEN = ['brand', 'brans', 'ozelKazanimlar'];
+export const KV_IZLENEN = ['brand', 'brans', 'ozelKazanimlar', 'ozelSenaryolar'];
 const degisti = () => { try { window.dispatchEvent(new Event('soruevim-degisti')); } catch { } };
 const ham = {
   put: (store, obj) => tx(store, 'readwrite', s => wrap(s.put(obj))),
@@ -62,7 +62,7 @@ export const db = {
     const out = { app: 'soruevim', version: 1, exportedAt: new Date().toISOString() };
     for (const s of STORES.filter(x => x !== 'kv' && x !== 'files')) out[s] = await db.all(s);
     out.brand = await db.kvGet('brand');
-    out.siniflar = await db.kvGet('siniflar');
+    out.siniflar = await db.kvGet('siniflar'); out.ozelSenaryolar = await db.kvGet('ozelSenaryolar');
     out.ozelKazanimlar = await db.kvGet('ozelKazanimlar');
     out.brans = await db.kvGet('brans');
     return out;
@@ -75,6 +75,7 @@ export const db = {
     }
     if (data.brand) await db.kvSet('brand', data.brand);
     if (data.siniflar) await db.kvSet('siniflar', data.siniflar);
+    if (data.ozelSenaryolar) await db.kvSet('ozelSenaryolar', data.ozelSenaryolar);
     if (data.ozelKazanimlar) await db.kvSet('ozelKazanimlar', data.ozelKazanimlar);
     if (data.brans) await db.kvSet('brans', data.brans);
   },
