@@ -108,7 +108,7 @@ async function kazanimCard(kind, seciliSoruVar) {
   const all = await db.all('questions');
   const last = (await db.kvGet('kazanimSecim')) || {};
   const siniflar = Object.keys(OGRENME_CIKTILARI);
-  const st = { sinif: siniflar.includes(last.sinif) ? last.sinif : '9. Sınıf', ders: last.ders || 'Kimya', secili: new Set(), alt: '', adet: tek ? 10 : 20, adetElle: false, oran: { 1: 30, 2: 50, 3: 20 }, doldur: !seciliSoruVar };
+  const st = { sinif: siniflar.includes(last.sinif) ? last.sinif : '9. Sınıf', ders: last.ders || 'Kimya', secili: new Set(), alt: '', adet: tek ? 10 : 20, adetElle: false, elleZor: '', oran: { 1: 30, 2: 50, 3: 20 }, doldur: !seciliSoruVar };
   const zor = q => ['1', '2', '3'].includes(String(q.zorluk)) ? String(q.zorluk) : '2';
   const oneri = () => tek ? 10 : Math.max(10, Math.min(40, st.secili.size * 4));
   const box = h('div.card', { style: { marginTop: '12px' } });
@@ -154,7 +154,13 @@ async function kazanimCard(kind, seciliSoruVar) {
       st.doldur ? h('label.row', { style: { gap: '6px' } }, 'Toplam soru', h('input.inp', { type: 'number', min: 1, max: 100, value: st.adet, style: { width: '80px' }, on: { input: e => { st.adet = Math.max(1, Math.min(100, +e.target.value || 1)); st.adetElle = true; ozet(); } } })) : null,
       st.doldur ? h('span.small.muted', `Önerilen: ${oneri()} soru`, st.adetElle && st.adet !== oneri() ? h('button.btn.btn-sm.btn-ghost', { type: 'button', on: { click: () => { st.adetElle = false; draw(); } } }, 'Öneriyi uygula') : null) : null,
       h('span.small.muted', st.secili.size ? `${st.secili.size} kazanım seçili · uygun ${toplam} soru` : 'Henüz kazanım seçilmedi')));
-    if (!st.doldur) { box.append(h('p.small.muted', { style: { marginTop: '8px' } }, '“Testi kur”a bastığınızda seçtiğiniz kazanımların soruları listelenir; istediklerinizi işaretleyip ekleyin.')); return; }
+    if (!st.doldur) {
+      box.append(h('div.row', { style: { marginTop: '10px', gap: '8px', flexWrap: 'wrap', alignItems: 'center' } }, h('b.small', 'Listelenecek sorular'),
+        ...[['', 'Hepsi', toplam], ['1', 'Kolay', say[1]], ['2', 'Orta', say[2]], ['3', 'Zor', say[3]]].map(([v, l, n]) =>
+          h('button.chip-btn' + (st.elleZor === v ? '.on' : ''), { type: 'button', on: { click: () => { st.elleZor = v; draw(); } } }, `${l} (${n})`))),
+        h('p.small.muted', { style: { marginTop: '6px' } }, '“Testi kur”a bastığınızda seçtiğiniz kazanımların ' + ({ '': '', 1: 'kolay ', 2: 'orta ', 3: 'zor ' }[st.elleZor]) + 'soruları listelenir; istediklerinizi işaretleyip ekleyin. Listede zorluğu yine değiştirebilirsiniz.'));
+      return;
+    }
     const ad = { 1: 'Kolay', 2: 'Orta', 3: 'Zor' };
     const ozetEl = h('div.small.muted', { style: { marginTop: '6px' } });
     const ozet = () => {
@@ -186,7 +192,7 @@ async function kazanimCard(kind, seciliSoruVar) {
     if (!st.doldur) {
       const uyan = new Set([...st.secili].flatMap(k => havuz(k).filter(q => !(tek && st.alt) || (q.altKazanim || '').trim() === st.alt)).map(q => q.id));
       if (!uyan.size) { toast('Seçtiğiniz kazanımlarda depoda soru yok'); return null; }
-      const sec = await pickQuestions({ title: `Soru seçin — ${uyan.size} uygun soru`, filter: q => uyan.has(q.id) });
+      const sec = await pickQuestions({ title: `Soru seçin — ${uyan.size} uygun soru`, filter: q => uyan.has(q.id), preset: st.elleZor ? { zorluk: st.elleZor } : {} });
       if (!sec?.length) return null;
       qids = sec;
     }
