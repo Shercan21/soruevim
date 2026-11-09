@@ -5,7 +5,7 @@ import { BODY_FONTS, TITLE_FONTS, SIZES, PAPERS, DEFAULT_LOOK, loadQR } from './
 
 export const KINDS = {
   foy: { ad: 'Konu Anlatımı', kisa: 'Konu Anlatımı', aciklama: 'Başlıklar, bilgi kutuları, çözümlü örnekler', ek: 'Konu' },
-  test: { ad: 'Tarama Testi', kisa: 'Test', aciklama: 'Çoktan seçmeli, iki sütun, cevap anahtarlı', ek: 'Test' },
+  test: { ad: 'Test', kisa: 'Test', aciklama: 'Tek konuda kısa çoktan seçmeli test, cevap anahtarlı', ek: 'Test' },
   yazili: { ad: 'Dönem Yazılısı', kisa: 'Yazılı', aciklama: 'MEB senaryolu, puanlı, açık uçlu ya da karma', ek: 'Yazılı' },
   deneme: { ad: 'Deneme Kitapçığı', kisa: 'Deneme', aciklama: 'Genel ya da branş denemesi — LGS, TYT, AYT, okul', ek: 'Deneme' },
   banka: { ad: 'Soru Kitabı', kisa: 'Soru Kitabı', aciklama: 'Kapaklı, içindekiler sayfalı, ünite ünite', ek: 'Soru Kitabı' },
@@ -60,6 +60,13 @@ export const denemeTuru = id => { for (const a of DENEME_TURLERI) for (const t o
 export const FOY_LABELS = { not: 'NOT', dikkat: 'DİKKAT', kural: 'KURAL', tanim: 'TANIM', puf: 'İPUCU', formul: 'FORMÜL', ornek: 'Örnek', alistirma: 'Şimdi Sen' };
 
 // Varsayılan belge ayarları
+// Aynı belge türünün hazır ayarları farklı kolları (Oluştur'da ayrı kart olarak görünür)
+export const VARIANTS = {
+  tarama: { kind: 'test', ad: 'Tarama Testi', aciklama: 'Ünite ya da dönem taraması, sonda kazanım listesi',
+    ayar: { ogrenmeCiktilari: true, bosluk: 8 }, sure: '60 dk' },
+};
+export const kindInfo = k => VARIANTS[k] || KINDS[k];
+
 export function defaultAyar(kind) {
   return {
     kagit: 'A4', bosluk: kind === 'banka' ? 6 : 10, olcek: 100,

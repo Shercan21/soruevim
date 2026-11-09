@@ -1,6 +1,6 @@
 import { h, toast, uid, confirmBox, readFileAsDataURL, readFileAsText, shrinkImage, download, modal, $ } from '../util.js';
 import { db, getBrand } from '../db.js';
-import { KINDS, DENEME_TURLERI, BRANSLAR, denemeTuru, renderDoc, defaultAyar, setKatex, FOY_LABELS } from '../render.js';
+import { KINDS, VARIANTS, kindInfo, DENEME_TURLERI, BRANSLAR, denemeTuru, renderDoc, defaultAyar, setKatex, FOY_LABELS } from '../render.js';
 import { HEADERS, TEMPLATES, PAGE_NUMS, Q_NUMS, BODY_FONTS, TITLE_FONTS, FOOTERS, SIZES, PAPERS, ensureFonts, loadKatex } from '../design.js';
 import { pickQuestions, editQuestion, qCard, cropTool, DERSLER } from './pool.js';
 import { SENARYOLAR, SENARYO_YILI, ciktiMetni } from '../meb.js';
@@ -16,7 +16,9 @@ export const KIMLER = {
 };
 
 export function newDoc(kind, opts = {}) {
+  const v = VARIANTS[kind]; if (v) kind = v.kind;
   const d = { id: uid(), kind, title: KINDS[kind].ad, meta: { sinif: '', ders: '', konu: '', sure: kind === 'test' || kind === 'yazili' ? '40 dk' : '' }, seed: Math.floor(Math.random() * 1e6), ayar: defaultAyar(kind), created: Date.now(), updated: Date.now() };
+  if (v) { d.title = v.ad; d.variant = opts.variant; Object.assign(d.ayar, v.ayar); if (v.sure) d.meta.sure = v.sure; }
   if (kind === 'foy') d.blocks = [];
   else if (kind === 'deneme') {
     const t = denemeTuru(opts.tur || 'serbest');
@@ -44,7 +46,7 @@ function migrate(doc) {
 // ---------- Giriş ekranı ----------
 export async function introView(app, kind, opts = {}) {
   let tur = 'lgs-sayisal';
-  const start = async () => { const d = newDoc(kind, { tur: tur || 'serbest', qids: opts.qids }); await db.put('documents', d); location.hash = '#/belge/' + d.id; };
+  const start = async () => { const d = newDoc(kind, { tur: tur || 'serbest', qids: opts.qids, variant: kind }); await db.put('documents', d); location.hash = '#/belge/' + d.id; };
   let turBox = null;
   if (kind === 'deneme') {
     const all = DENEME_TURLERI.flatMap(a => a.turler.map(t => ({ ...t, aile: a.aile, sik: a.sik, not: a.not })));
@@ -77,7 +79,7 @@ export async function introView(app, kind, opts = {}) {
   const senBox = kind === 'yazili' && !opts.qids?.length ? await senaryoCard() : null;
   app.append(...[
     h('a.btn.btn-sm.btn-ghost', { href: '#/' }, '← Geri dön'),
-    h('h1', { style: { marginTop: '8px' } }, KINDS[kind].ad), h('p.muted', KINDS[kind].aciklama),
+    h('h1', { style: { marginTop: '8px' } }, kindInfo(kind).ad), h('p.muted', kindInfo(kind).aciklama),
     kind === 'foy' ? h('div.card', h('p', { style: { margin: 0 } }, 'Konu anlatımını boş başlatıp bloklarla kurabilir ya da hazır notlarınızı yapıştırıp otomatik bloklara böldürebilirsiniz.')) : null,
     opts.qids?.length ? h('div.card', h('b', opts.qids.length + ' seçili soru'), ' bu belgeye eklenecek.') : null,
     turBox, senBox,
@@ -517,7 +519,7 @@ export async function editorView(app, { id }) {
   const teacherBtn = h('button.btn.btn-sm', { title: 'Çözümleri göster/gizle (öğretmen sürümü)', on: { click: () => { teacher = !teacher; teacherBtn.classList.toggle('btn-accent', teacher); teacherBtn.textContent = teacher ? '👁 Öğretmen' : '👁 Öğrenci'; refresh(); } } }, '👁 Öğrenci');
   const toolbar = h('div.row.editor-toolbar', { style: { marginBottom: '12px', position: 'sticky', top: '58px', zIndex: 10, background: 'var(--cream)', padding: '6px 0' } },
     h('a.btn.btn-sm.btn-ghost', { href: '#/', title: 'Başlangıç ekranına dön' }, '⌂'),
-    h('b', { style: { fontSize: '1.05rem' } }, KINDS[doc.kind].ad), undoBtn, redoBtn,
+    h('b', { style: { fontSize: '1.05rem' } }, kindInfo(doc.variant || doc.kind).ad), undoBtn, redoBtn,
     h('button.btn.btn-sm', { title: 'PDF’ten kırp — belgenin sonuna eklenir', on: { click: () => cropTool(async qs => { await reloadQ(); if (doc.kind === 'foy') doc.blocks.push(...qs.map(q => ({ id: uid(), t: 'soru', qid: q.id }))); else if (doc.kind === 'deneme') doc.sections.at(-1).qids.push(...qs.map(q => q.id)); else doc.items.push(...qs.map(q => ({ qid: q.id, puan: 0 }))); drawContent(); changed(); }) } }, '✂'),
     h('button.btn.btn-sm', { title: 'Belgeyi temizle', on: { click: async () => { if (!await confirmBox('Bütün içerik silinsin mi? Sorular depoda kalır.', 'Temizle')) return; if (doc.kind === 'foy') doc.blocks = []; else if (doc.kind === 'deneme') doc.sections.forEach(s => s.qids = []); else doc.items = []; drawContent(); changed(); } } }, '🗑'),
     teacherBtn,

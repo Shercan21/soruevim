@@ -16,7 +16,7 @@ const routes = [
   [/^\/belgeler$/, () => docsView(app), 'belgeler'],
   [/^\/marka$/, () => brandView(app), 'marka'],
   [/^\/havuz$/, () => poolView(app), 'havuz'],
-  [/^\/yeni\/(foy|test|yazili|deneme|banka)$/, m => introView(app, m[1], { qids: takeQids() }), 'home'],
+  [/^\/yeni\/(foy|test|tarama|yazili|deneme|banka)$/, m => introView(app, m[1], { qids: takeQids() }), 'home'],
   [/^\/belge\/([\w-]+)$/, m => editorView(app, { id: m[1] }), 'belgeler'],
 ];
 

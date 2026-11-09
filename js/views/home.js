@@ -1,6 +1,6 @@
 import { h, ICONS, fmtDate, confirmBox, toast, download, readFileAsText, modal } from '../util.js';
 import { db, getBrand } from '../db.js';
-import { KINDS } from '../render.js';
+import { KINDS, kindInfo } from '../render.js';
 
 const ico = name => h('div.ico', { html: ICONS[name] });
 
@@ -10,7 +10,7 @@ export async function homeView(app) {
 
   const sonId = await db.kvGet('sonBelge'); const son = sonId ? docs.find(d => d.id === sonId) : docs.sort((a, b) => b.updated - a.updated)[0];
   const kindCard = (kind, tag) => h('a.card.kind-card', { href: '#/yeni/' + kind, 'data-tour': kind },
-    ico(kind), h('div', h('h3', KINDS[kind].ad, tag ? h('span.tag', tag) : null), h('p', KINDS[kind].aciklama)), h('span.arrow', '→'));
+    ico(ICONS[kind] ? kind : 'test'), h('div', h('h3', kindInfo(kind).ad, tag ? h('span.tag', tag) : null), h('p', kindInfo(kind).aciklama)), h('span.arrow', '→'));
 
   app.append(...[
     h('section.hero',
@@ -23,7 +23,7 @@ export async function homeView(app) {
         h('div', h('h3', 'Kurum Kimliğinizi Hazırlayın', brandReady ? h('span.tag', '✓ HAZIR') : null), h('p', 'Logonuz, renginiz ve iletişiminiz ürettiğiniz her belgede görünsün. Bir kez kurmanız yeterli.')),
         h('span.arrow', '→'))),
     h('div.grid.grid-2', { style: { marginTop: '14px' } },
-      kindCard('test'), kindCard('yazili'), kindCard('deneme'), kindCard('foy'), kindCard('banka', 'ÇOK SAYFA')),
+      kindCard('test'), kindCard('tarama'), kindCard('yazili'), kindCard('deneme'), kindCard('foy'), kindCard('banka', 'ÇOK SAYFA')),
     h('div.grid', { style: { marginTop: '14px' } },
       h('a.card.kind-card', { href: '#/havuz', 'data-tour': 'havuz' }, ico('havuz'), h('div', h('h3', 'Soru Deposu', h('span.tag', qs.length + ' SORU')), h('p', 'Kırptığınız ve yazdığınız bütün sorular burada birikir')), h('span.arrow', '→'))),
     docs.length ? h('div', h('div.eyebrow', 'Son belgeler'),
