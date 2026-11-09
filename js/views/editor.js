@@ -48,8 +48,14 @@ function migrate(doc) {
 export async function introView(app, kind, opts = {}) {
   let tur = 'lgs-sayisal';
   const kzBox = (kind === 'test' || kind === 'tarama') ? await kazanimCard(kind, !!opts.qids?.length) : null;
+  const dnBox = kind === 'deneme' && !opts.qids?.length ? await denemeDoldurCard(() => tur) : null;
   const start = async (bos) => {
     let sec = null;
+    if (dnBox) {
+      const d = newDoc(kind, { tur: tur || 'serbest', variant: kind });
+      if (!await dnBox.doldur(d)) return;
+      await db.put('documents', d); location.hash = '#/belge/' + d.id; return;
+    }
     if (kzBox && bos !== true) { sec = await kzBox.secim(); if (!sec) return; }
     const d = newDoc(kind, { tur: tur || 'serbest', qids: opts.qids, variant: kind });
     if (sec) {
@@ -63,7 +69,7 @@ export async function introView(app, kind, opts = {}) {
   if (kind === 'deneme') {
     const all = DENEME_TURLERI.flatMap(a => a.turler.map(t => ({ ...t, aile: a.aile, sik: a.sik, not: a.not })));
     const qty = t => t.bolumler.reduce((x, b) => x + b.n, 0);
-    const radio = t => h('label.item-row.tur-opt', { style: { cursor: 'pointer' } }, h('input', { type: 'radio', name: 'tur', checked: t.id === tur, on: { change: () => { tur = t.id; } } }),
+    const radio = t => h('label.item-row.tur-opt', { style: { cursor: 'pointer' } }, h('input', { type: 'radio', name: 'tur', checked: t.id === tur, on: { change: () => { tur = t.id; dnBox?.redraw(); } } }),
       h('span.txt', h('b', t.ad), h('span.small.muted', '  ' + [qty(t) ? qty(t) + ' soru' : '', t.sure ? t.sure + ' dk' : '', t.sik + ' şık'].filter(Boolean).join(' · '))));
     const body = h('div');
     let sekme = 'genel', brans = 'Kimya';
@@ -79,7 +85,7 @@ export async function introView(app, kind, opts = {}) {
       } else {
         body.append(h('div.chips', { style: { marginTop: '12px' } }, BRANSLAR.map(d => h('button.chip-btn' + (d === brans ? '.on' : ''), { type: 'button', on: { click: () => { brans = d; draw(); } } }, d))));
         const ts = all.filter(t => t.grup === 'Branş denemesi' && t.ders === brans);
-        if (!ts.some(t => t.id === tur)) tur = ts[0]?.id || tur;
+        if (!ts.some(t => t.id === tur)) { tur = ts[0]?.id || tur; setTimeout(() => dnBox?.redraw()); }
         body.append(h('div.grid.grid-2', { style: { gap: '6px', marginTop: '12px' } }, ts.map(t => h('div', radio(t), h('div.small.muted', { style: { margin: '2px 0 0 30px' } }, t.not)))));
         body.append(h('p.small.muted', { style: { marginTop: '8px' } }, 'Okul denemesinde soru sayısını ve süreyi belge açıldıktan sonra değiştirebilirsiniz.'));
       }
@@ -94,12 +100,86 @@ export async function introView(app, kind, opts = {}) {
     h('h1', { style: { marginTop: '8px' } }, kindInfo(kind).ad), h('p.muted', kindInfo(kind).aciklama),
     kind === 'foy' ? h('div.card', h('p', { style: { margin: 0 } }, 'Konu anlatımını boş başlatıp bloklarla kurabilir ya da hazır notlarınızı yapıştırıp otomatik bloklara böldürebilirsiniz.')) : null,
     opts.qids?.length ? h('div.card', h('b', opts.qids.length + ' seçili soru'), ' bu belgeye eklenecek.') : null,
-    turBox, senBox, kzBox,
-    h('button.btn.btn-accent', { style: { width: '100%', marginTop: '14px', padding: '14px', fontSize: '1.05rem' }, on: { click: () => start() } }, senBox ? 'Boş kâğıtla başla →' : kzBox ? 'Testi kur →' : 'Başla →'),
+    turBox, dnBox, senBox, kzBox,
+    h('button.btn.btn-accent', { style: { width: '100%', marginTop: '14px', padding: '14px', fontSize: '1.05rem' }, on: { click: () => start() } }, senBox ? 'Boş kâğıtla başla →' : dnBox ? 'Denemeyi kur →' : kzBox ? 'Testi kur →' : 'Başla →'),
     kzBox ? h('button.btn.btn-ghost', { style: { width: '100%', marginTop: '6px' }, on: { click: () => start(true) } }, 'Kazanım seçmeden boş kâğıtla başla') : null,
     ].filter(Boolean));
 }
 
+
+// ---------- Deneme: bölümleri depodan doldur (soru sayısı türden gelir) ----------
+const BOLUM_DERS = { 'Temel Matematik': ['Matematik'], 'Fen Bilimleri': ['Fizik', 'Kimya', 'Biyoloji', 'Fen Bilimleri'], 'Sosyal Bilimler': ['Tarih', 'Coğrafya', 'Felsefe', 'Din Kültürü ve Ahlak Bilgisi'],
+  'Felsefe Grubu': ['Felsefe'], 'Din Kültürü': ['Din Kültürü ve Ahlak Bilgisi'], 'Türk Dili ve Edebiyatı–Sosyal Bilimler-1': ['Türk Dili ve Edebiyatı', 'Tarih', 'Coğrafya'], 'Sosyal Bilimler-2': ['Tarih', 'Coğrafya', 'Felsefe', 'Din Kültürü ve Ahlak Bilgisi'] };
+const bolumDersleri = (ad, tur) => BOLUM_DERS[ad] ? (tur?.aile === 'LGS' && ad === 'Fen Bilimleri' ? ['Fen Bilimleri'] : BOLUM_DERS[ad]) : [ad.replace(/-\d$/, '')];
+const turSiniflari = tur => tur?.aile === 'LGS' ? ['5. Sınıf', '6. Sınıf', '7. Sınıf', '8. Sınıf'] : tur?.id?.startsWith('tyt') ? ['9. Sınıf', '10. Sınıf'] : tur?.id?.startsWith('ayt') ? ['11. Sınıf', '12. Sınıf'] : null;
+async function denemeDoldurCard(getTur) {
+  const all = await db.all('questions');
+  const st = { mod: 'oto', oran: { 1: 30, 2: 50, 3: 20 }, zor: '', sinif: '' };
+  const zor = q => ['1', '2', '3'].includes(String(q.zorluk)) ? String(q.zorluk) : '2';
+  const box = h('div.card', { style: { marginTop: '12px' } });
+  const havuzu = (bolum, tur) => { const ds = bolumDersleri(bolum, tur); const sn = st.sinif ? [st.sinif] : turSiniflari(tur); return all.filter(q => ds.includes(q.ders) && (!sn || sn.includes(q.sinif))); };
+  const draw = () => {
+    box.innerHTML = '';
+    const tur = denemeTuru(getTur());
+    box.append(h('h3', { style: { margin: '0 0 4px' } }, 'Sorular nasıl yerleşsin?'),
+      h('p.small.muted', { style: { margin: '0 0 10px' } }, 'Soru sayıları seçtiğiniz deneme türünden gelir. Otomatikte her bölüme o bölümün kazanımlarından dengeli dağılımla, her kazanımdan en çok bir soru konur.'),
+      h('div.seg', [['oto', '⚡ Otomatik'], ['elle', '✋ Kendim seçeyim'], ['bos', '☐ Boş başla']].map(([v, l]) => h('button' + (st.mod === v ? '.on' : ''), { type: 'button', on: { click: () => { st.mod = v; draw(); } } }, l))));
+    if (st.mod === 'bos') return;
+    if (tur?.aile === 'Serbest') box.append(h('label.fld', { style: { marginTop: '10px', maxWidth: '260px' } }, 'Hangi sınıfın soruları?', h('select.inp', { on: { change: e => { st.sinif = e.target.value; draw(); } } },
+      [['', 'Bütün sınıflar'], ...Array.from({ length: 8 }, (_, i) => [(i + 5) + '. Sınıf', (i + 5) + '. Sınıf'])].map(([v, l]) => h('option', { value: v, selected: v === st.sinif }, l)))));
+    const tablo = h('table.table', { style: { marginTop: '10px', fontSize: '.9rem' } }, h('tr', h('th', 'Bölüm'), h('th', 'Soru'), h('th', 'Depoda'), h('th', 'Kazanım')));
+    for (const b of tur?.bolumler || []) {
+      const p = havuzu(b.name, tur); const kz = new Set(p.map(q => q.kazanim || q.konu || q.id)).size;
+      tablo.append(h('tr', h('td', b.name), h('td', String(b.n || '—')), h('td', String(p.length)), h('td', { style: { color: st.mod === 'oto' && b.n > kz ? '#c0392b' : '' } }, String(kz))));
+    }
+    box.append(tablo);
+    if (st.mod === 'oto') {
+      box.append(h('div.row', { style: { marginTop: '10px', gap: '10px', flexWrap: 'wrap', alignItems: 'center' } }, h('b.small', 'Zorluk yüzdesi'),
+        ...['1', '2', '3'].map(z => h('label.row', { style: { gap: '4px' } }, h('span.chip.lvl' + z, { 1: 'Kolay', 2: 'Orta', 3: 'Zor' }[z]), h('input.inp', { type: 'number', min: 0, max: 100, step: 5, value: st.oran[z], style: { width: '70px' }, on: { input: e => { st.oran[z] = Math.max(0, Math.min(100, +e.target.value || 0)); } } }), '%')),
+        h('button.btn.btn-sm.btn-ghost', { type: 'button', on: { click: () => { st.oran = { 1: 30, 2: 50, 3: 20 }; draw(); } } }, 'Önerilen: %30 · %50 · %20')),
+        h('p.small.muted', 'Bir bölümün kazanım sayısı soru sayısından azsa (kırmızı), o bölüm eksik kalır; eksikleri belgede elle tamamlayabilirsiniz.'));
+    } else {
+      box.append(h('div.row', { style: { marginTop: '10px', gap: '8px', flexWrap: 'wrap', alignItems: 'center' } }, h('b.small', 'Listelenecek sorular'),
+        ...[['', 'Hepsi'], ['1', 'Kolay'], ['2', 'Orta'], ['3', 'Zor']].map(([v, l]) => h('button.chip-btn' + (st.zor === v ? '.on' : ''), { type: 'button', on: { click: () => { st.zor = v; draw(); } } }, l))),
+        h('p.small.muted', '“Denemeyi kur”a basınca her bölüm için o bölümün soruları sırayla listelenir; istediklerinizi işaretleyin.'));
+    }
+  };
+  box.doldur = async (d) => {
+    if (st.mod === 'bos') return true;
+    const tur = denemeTuru(d.meta.tur);
+    if (st.mod === 'oto' && st.oran[1] + st.oran[2] + st.oran[3] !== 100) { toast('Zorluk yüzdelerinin toplamı 100 olmalı'); return false; }
+    let eksik = 0;
+    for (const sec of d.sections) {
+      const pool = havuzu(sec.name, tur);
+      if (st.mod === 'elle') {
+        const ids = new Set(pool.map(q => q.id));
+        if (!ids.size) continue;
+        const r = await pickQuestions({ title: `${sec.name} — ${sec.hedef ? sec.hedef + ' soru seçin' : 'soru seçin'}`, filter: q => ids.has(q.id), preset: st.zor ? { zorluk: st.zor } : {} });
+        if (r === null) return false;
+        sec.qids = r; continue;
+      }
+      const n = sec.hedef || 0; if (!n) continue;
+      // kazanımlara göre grupla (kazanımı olmayanlar konuya göre), sıralı listeden eşit aralıklarla n grup seç
+      const gmap = new Map();
+      for (const q of shuffle(pool)) { const k = q.kazanim || ('konu:' + (q.konu || '?')); if (!gmap.has(k)) gmap.set(k, []); gmap.get(k).push(q); }
+      const keys = [...gmap.keys()].sort((a, b) => a.localeCompare(b, 'tr', { numeric: true }));
+      const secilen = keys.length <= n ? keys : Array.from({ length: n }, (_, i) => keys[Math.floor(i * keys.length / n)]);
+      const t = st.oran[1] + st.oran[2] + st.oran[3]; const k1 = Math.round(secilen.length * st.oran[1] / t), k3 = Math.round(secilen.length * st.oran[3] / t);
+      const kota = { 1: k1, 3: k3, 2: secilen.length - k1 - k3 }, kalan = { ...kota };
+      const yakin = { 1: ['1', '2', '3'], 2: ['2', '1', '3'], 3: ['3', '2', '1'] };
+      sec.qids = secilen.map(k => {
+        const z = ['3', '1', '2'].sort((a, b) => kalan[b] / (kota[b] || 1) - kalan[a] / (kota[a] || 1)).find(z => kalan[z] > 0) || '2'; kalan[z]--;
+        const g = gmap.get(k); for (const zz of yakin[z]) { const q = g.find(q => zor(q) === zz); if (q) return q.id; } return g[0].id;
+      });
+      eksik += Math.max(0, n - sec.qids.length);
+    }
+    if (eksik) toast(`Depoda yeterli kazanım yok: ${eksik} soru eksik kaldı`);
+    return true;
+  };
+  draw();
+  box.redraw = draw;
+  return box;
+}
 
 // ---------- Test: tek kazanım (ya da alt çıktı) · Tarama: birden çok kazanım ----------
 const ALT_RE = /^\d+\.\d+\.\d+-[a-zçğıöşü]\b/i;
