@@ -3,7 +3,8 @@ import { db, getBrand } from '../db.js';
 import { KINDS, VARIANTS, kindInfo, DENEME_TURLERI, BRANSLAR, denemeTuru, renderDoc, defaultAyar, setKatex, FOY_LABELS } from '../render.js';
 import { HEADERS, TEMPLATES, PAGE_NUMS, Q_NUMS, BODY_FONTS, TITLE_FONTS, FOOTERS, SIZES, PAPERS, ensureFonts, loadKatex } from '../design.js';
 import { pickQuestions, editQuestion, qCard, cropTool, DERSLER } from './pool.js';
-import { SENARYOLAR, SENARYO_YILI, ciktiMetni } from '../meb.js';
+import { SENARYOLAR, SENARYO_YILI, ciktiMetni, OGRENME_CIKTILARI } from '../meb.js';
+import { shuffle } from '../util.js';
 
 const FOY_TYPES = { paragraf: 'Paragraf', arabaslik: 'Ara Başlık', baslik: 'Konu Başlığı', not: 'NOT', dikkat: 'DİKKAT', ornek: 'Örnek', alistirma: 'Şimdi Sen', kural: 'KURAL', tanim: 'TANIM', puf: 'İPUCU', formul: 'Formül', gorsel: 'Görsel', ayrac: 'Ayraç', bosluk: 'Boşluk', soru: 'Depodan soru', sayfa: 'Sayfa sonu' };
 const SINIFLAR = Array.from({ length: 12 }, (_, i) => (i + 1) + '. Sınıf').concat(['Mezun']);
@@ -46,7 +47,18 @@ function migrate(doc) {
 // ---------- Giriş ekranı ----------
 export async function introView(app, kind, opts = {}) {
   let tur = 'lgs-sayisal';
-  const start = async () => { const d = newDoc(kind, { tur: tur || 'serbest', qids: opts.qids, variant: kind }); await db.put('documents', d); location.hash = '#/belge/' + d.id; };
+  const kzBox = (kind === 'test' || kind === 'tarama') ? await kazanimCard(kind, !!opts.qids?.length) : null;
+  const start = async (bos) => {
+    let sec = null;
+    if (kzBox && bos !== true) { sec = kzBox.secim(); if (!sec) return; }
+    const d = newDoc(kind, { tur: tur || 'serbest', qids: opts.qids, variant: kind });
+    if (sec) {
+      Object.assign(d.meta, { sinif: sec.sinif, ders: sec.ders, konu: sec.konu, kazanimlar: sec.kodlar });
+      if (sec.qids.length && !opts.qids?.length) d.items = sec.qids.map(qid => ({ qid, puan: 0 }));
+      if (sec.eksik) toast(`Depoda yeterli soru yok: ${sec.qids.length} soru eklendi`);
+    }
+    await db.put('documents', d); location.hash = '#/belge/' + d.id;
+  };
   let turBox = null;
   if (kind === 'deneme') {
     const all = DENEME_TURLERI.flatMap(a => a.turler.map(t => ({ ...t, aile: a.aile, sik: a.sik, not: a.not })));
@@ -82,11 +94,100 @@ export async function introView(app, kind, opts = {}) {
     h('h1', { style: { marginTop: '8px' } }, kindInfo(kind).ad), h('p.muted', kindInfo(kind).aciklama),
     kind === 'foy' ? h('div.card', h('p', { style: { margin: 0 } }, 'Konu anlatımını boş başlatıp bloklarla kurabilir ya da hazır notlarınızı yapıştırıp otomatik bloklara böldürebilirsiniz.')) : null,
     opts.qids?.length ? h('div.card', h('b', opts.qids.length + ' seçili soru'), ' bu belgeye eklenecek.') : null,
-    turBox, senBox,
-    h('button.btn.btn-accent', { style: { width: '100%', marginTop: '14px', padding: '14px', fontSize: '1.05rem' }, on: { click: start } }, senBox ? 'Boş kâğıtla başla →' : 'Başla →'),
+    turBox, senBox, kzBox,
+    h('button.btn.btn-accent', { style: { width: '100%', marginTop: '14px', padding: '14px', fontSize: '1.05rem' }, on: { click: () => start() } }, senBox ? 'Boş kâğıtla başla →' : kzBox ? 'Testi kur →' : 'Başla →'),
+    kzBox ? h('button.btn.btn-ghost', { style: { width: '100%', marginTop: '6px' }, on: { click: () => start(true) } }, 'Kazanım seçmeden boş kâğıtla başla') : null,
     ].filter(Boolean));
 }
 
+
+// ---------- Test: tek kazanım (ya da alt çıktı) · Tarama: birden çok kazanım ----------
+const ALT_RE = /^\d+\.\d+\.\d+-[a-zçğıöşü]\b/i;
+async function kazanimCard(kind, seciliSoruVar) {
+  const tek = kind === 'test';
+  const all = await db.all('questions');
+  const last = (await db.kvGet('kazanimSecim')) || {};
+  const siniflar = Object.keys(OGRENME_CIKTILARI);
+  const st = { sinif: siniflar.includes(last.sinif) ? last.sinif : '9. Sınıf', ders: last.ders || 'Kimya', secili: new Set(), alt: '', adet: tek ? 10 : 20, adetElle: false, oran: { 1: 30, 2: 50, 3: 20 }, doldur: !seciliSoruVar };
+  const zor = q => ['1', '2', '3'].includes(String(q.zorluk)) ? String(q.zorluk) : '2';
+  const oneri = () => tek ? 10 : Math.max(10, Math.min(40, st.secili.size * 4));
+  const box = h('div.card', { style: { marginTop: '12px' } });
+  const havuz = kod => all.filter(q => q.kazanim === kod && q.sinif === st.sinif && (q.ders || '') === st.ders);
+  const altlar = kod => [...new Set(havuz(kod).map(q => (q.altKazanim || '').trim()).filter(a => ALT_RE.test(a)))].sort((a, b) => a.localeCompare(b, 'tr'));
+  const draw = () => {
+    box.innerHTML = '';
+    const liste = (OGRENME_CIKTILARI[st.sinif] || []).filter(x => x.ders === st.ders);
+    const dersler = [...new Set((OGRENME_CIKTILARI[st.sinif] || []).map(x => x.ders))].sort((a, b) => a.localeCompare(b, 'tr'));
+    if (!dersler.includes(st.ders)) st.ders = dersler.includes('Kimya') ? 'Kimya' : dersler[0];
+    box.append(h('h3', { style: { margin: '0 0 4px' } }, tek ? 'Hangi kazanımın testi?' : 'Hangi kazanımları tarayacak?'),
+      h('p.small.muted', { style: { margin: '0 0 10px' } }, tek ? 'Bir kazanım seçin; depoda alt çıktısı etiketli sorular varsa alt çıktıyı da seçebilirsiniz.' : 'Taranacak kazanımları işaretleyin; sorular seçtiğiniz kazanımlara eşit dağıtılır.'),
+      h('div.grid.grid-2', { style: { gap: '8px' } },
+        h('label.fld', 'Sınıf', h('select.inp', { on: { change: e => { st.sinif = e.target.value; st.secili.clear(); st.alt = ''; draw(); } } }, siniflar.map(o => h('option', { value: o, selected: o === st.sinif }, o)))),
+        h('label.fld', 'Ders', h('select.inp', { on: { change: e => { st.ders = e.target.value; st.secili.clear(); st.alt = ''; draw(); } } }, dersler.map(o => h('option', { value: o, selected: o === st.ders }, o))))));
+    const temalar = [...new Set(liste.map(x => x.tema || ''))];
+    const kutu = h('div', { style: { maxHeight: '420px', overflow: 'auto', marginTop: '10px', display: 'grid', gap: '4px' } });
+    for (const t of temalar) {
+      const ks = liste.filter(x => (x.tema || '') === t);
+      kutu.append(h('div.row', { style: { margin: '8px 0 2px', gap: '8px' } }, h('b.small', t || 'Kazanımlar'),
+        !tek ? h('button.btn.btn-sm.btn-ghost', { type: 'button', on: { click: () => { const hepsi = ks.every(x => st.secili.has(x.kod)); ks.forEach(x => hepsi ? st.secili.delete(x.kod) : st.secili.add(x.kod)); draw(); } } }, ks.every(x => st.secili.has(x.kod)) ? 'Temayı bırak' : 'Temayı seç') : null));
+      for (const x of ks) {
+        const n = havuz(x.kod).length;
+        const on = st.secili.has(x.kod);
+        kutu.append(h('label.item-row.tur-opt', { style: { cursor: 'pointer', alignItems: 'flex-start' } },
+          h('input', { type: tek ? 'radio' : 'checkbox', name: 'kz', checked: on, style: { marginTop: '4px' }, on: { change: e => { if (tek) { st.secili.clear(); st.alt = ''; } e.target.checked ? st.secili.add(x.kod) : st.secili.delete(x.kod); draw(); } } }),
+          h('span.txt', h('b', x.kod), ' ', h('span', x.metin), h('div.small.muted', n ? `depoda ${n} soru` : 'depoda soru yok'))));
+        if (tek && on) {
+          const a = altlar(x.kod);
+          if (a.length) kutu.append(h('div.chips', { style: { margin: '2px 0 6px 30px' } },
+            [['', 'Bütün alt çıktılar'], ...a.map(v => [v, v])].map(([v, l]) => h('button.chip-btn' + (st.alt === v ? '.on' : ''), { type: 'button', on: { click: () => { st.alt = v; draw(); } } }, l + (v ? ` (${havuz(x.kod).filter(q => (q.altKazanim || '').trim() === v).length})` : '')))));
+        }
+      }
+    }
+    if (!liste.length) kutu.append(h('p.small.muted', 'Bu sınıf ve ders için kazanım listesi yok.'));
+    box.append(kutu);
+    const uygun = () => [...st.secili].flatMap(k => havuz(k).filter(q => !(tek && st.alt) || (q.altKazanim || '').trim() === st.alt));
+    const toplam = uygun().length;
+    if (!st.adetElle) st.adet = oneri();
+    const say = uygun().reduce((a, q) => (a[zor(q)]++, a), { 1: 0, 2: 0, 3: 0 });
+    box.append(h('div.row', { style: { marginTop: '12px', gap: '14px', flexWrap: 'wrap', alignItems: 'center' } },
+      h('label.row', { style: { gap: '6px' } }, h('input', { type: 'checkbox', checked: st.doldur, on: { change: e => { st.doldur = e.target.checked; draw(); } } }), 'Soruları depodan otomatik seç'),
+      st.doldur ? h('label.row', { style: { gap: '6px' } }, 'Toplam soru', h('input.inp', { type: 'number', min: 1, max: 100, value: st.adet, style: { width: '80px' }, on: { input: e => { st.adet = Math.max(1, Math.min(100, +e.target.value || 1)); st.adetElle = true; ozet(); } } })) : null,
+      st.doldur ? h('span.small.muted', `Önerilen: ${oneri()} soru`, st.adetElle && st.adet !== oneri() ? h('button.btn.btn-sm.btn-ghost', { type: 'button', on: { click: () => { st.adetElle = false; draw(); } } }, 'Öneriyi uygula') : null) : null,
+      h('span.small.muted', st.secili.size ? `${st.secili.size} kazanım seçili · uygun ${toplam} soru` : 'Henüz kazanım seçilmedi')));
+    if (!st.doldur) return;
+    const ad = { 1: 'Kolay', 2: 'Orta', 3: 'Zor' };
+    const ozetEl = h('div.small.muted', { style: { marginTop: '6px' } });
+    const ozet = () => {
+      const k = kota();
+      ozetEl.textContent = `Dağılım: ${k[1]} kolay · ${k[2]} orta · ${k[3]} zor` + (st.secili.size ? `  —  depoda ${say[1]} kolay, ${say[2]} orta, ${say[3]} zor` : '') + (st.oran[1] + st.oran[2] + st.oran[3] !== 100 ? '  ⚠ Yüzdelerin toplamı 100 olmalı' : '');
+    };
+    box.append(h('div.row', { style: { marginTop: '10px', gap: '10px', flexWrap: 'wrap', alignItems: 'center' } }, h('b.small', 'Zorluk yüzdesi'),
+      ...['1', '2', '3'].map(z => h('label.row', { style: { gap: '4px' } }, h('span.chip.lvl' + z, ad[z]), h('input.inp', { type: 'number', min: 0, max: 100, step: 5, value: st.oran[z], style: { width: '70px' }, on: { input: e => { st.oran[z] = Math.max(0, Math.min(100, +e.target.value || 0)); ozet(); } } }), '%')),
+      h('button.btn.btn-sm.btn-ghost', { type: 'button', on: { click: () => { st.oran = { 1: 30, 2: 50, 3: 20 }; draw(); } } }, 'Önerilen: %30 · %50 · %20')), ozetEl);
+    ozet();
+  };
+  const kota = () => { const t = st.oran[1] + st.oran[2] + st.oran[3] || 1; const k1 = Math.round(st.adet * st.oran[1] / t), k3 = Math.round(st.adet * st.oran[3] / t); return { 1: k1, 3: k3, 2: Math.max(0, st.adet - k1 - k3) }; };
+  draw();
+  box.secim = () => {
+    if (!st.secili.size) { toast(tek ? 'Bir kazanım seçin' : 'En az bir kazanım seçin'); box.scrollIntoView({ behavior: 'smooth' }); return null; }
+    db.kvSet('kazanimSecim', { sinif: st.sinif, ders: st.ders });
+    const kodlar = [...st.secili];
+    let qids = [];
+    if (st.doldur) {
+      if (st.oran[1] + st.oran[2] + st.oran[3] !== 100) { toast('Zorluk yüzdelerinin toplamı 100 olmalı'); return null; }
+      const gruplar = kodlar.map(k => shuffle(havuz(k).filter(q => !(tek && st.alt) || (q.altKazanim || '').trim() === st.alt)));
+      const al = (n, uyar) => { let i = 0, alinan = 0; while (alinan < n && gruplar.some(g => g.some(uyar))) { const g = gruplar[i++ % gruplar.length]; const j = g.findIndex(uyar); if (j >= 0) { qids.push(g.splice(j, 1)[0].id); alinan++; } } };
+      const k = kota();
+      for (const z of ['1', '2', '3']) al(k[z], q => zor(q) === z);
+      al(st.adet - qids.length, q => zor(q) === '2'); al(st.adet - qids.length, () => true); // eksik kalanı diğer zorluklardan tamamla
+      // kolaydan zora sırala
+      const byId = Object.fromEntries(all.map(q => [q.id, q])); qids.sort((a, b) => zor(byId[a]) - zor(byId[b]));
+    }
+    const konu = tek ? ((st.alt ? st.alt + ' · ' : '') + (ciktiMetni(kodlar[0]) || kodlar[0])) : [...new Set(kodlar.map(k => (OGRENME_CIKTILARI[st.sinif] || []).find(x => x.kod === k)?.tema).filter(Boolean))].join(', ');
+    return { sinif: st.sinif, ders: st.ders, kodlar, konu, qids, eksik: st.doldur && qids.length < st.adet };
+  };
+  return box;
+}
 
 // ---------- Senaryodan yazılı kurma (MEB konu-soru dağılım tabloları) ----------
 function senaryoUygula(d, st, sc) {
