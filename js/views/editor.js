@@ -141,9 +141,7 @@ async function denemeDoldurCard(getTur) {
         h('button.btn.btn-sm.btn-ghost', { type: 'button', on: { click: () => { st.oran = { 1: 30, 2: 50, 3: 20 }; draw(); } } }, 'Önerilen: %30 · %50 · %20')),
         h('p.small.muted', 'Kırmızı: bu sınırla bölüm dolmuyor; “Kazanım başına en çok” değerini artırın ya da eksikleri belgede elle tamamlayın.'));
     } else {
-      box.append(h('div.row', { style: { marginTop: '10px', gap: '8px', flexWrap: 'wrap', alignItems: 'center' } }, h('b.small', 'Listelenecek sorular'),
-        ...[['', 'Hepsi'], ['1', 'Kolay'], ['2', 'Orta'], ['3', 'Zor']].map(([v, l]) => h('button.chip-btn' + (st.zor === v ? '.on' : ''), { type: 'button', on: { click: () => { st.zor = v; draw(); } } }, l))),
-        h('p.small.muted', '“Denemeyi kur”a basınca her bölüm için o bölümün soruları sırayla listelenir; istediklerinizi işaretleyin.'));
+      box.append(h('p.small.muted', { style: { marginTop: '10px' } }, '“Denemeyi kur”a basınca her bölüm için o bölümün soruları sırayla listelenir; istediklerinizi işaretleyin. Zorluğa göre süzmek isterseniz listenin üstündeki “Her zorluk” kutusunu kullanın.'));
     }
   };
   box.doldur = async (d) => {
