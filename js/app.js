@@ -24,8 +24,17 @@ const routes = [
   [/^\/belge\/([\w-]+)$/, m => editorView(app, { id: m[1] }), 'belgeler'],
 ];
 
+// Anonim ziyaret sayacı (GoatCounter; çerez yok, kişisel veri yok). Belge numaraları sayılmaz.
+let sonSayilan = '';
+function say(path) {
+  const yol = '/soruevim' + (path.replace(/^\/(belge|yeni)\/([^/]+).*/, (m, a, b) => a === 'belge' ? '/belge' : '/yeni/' + b) || '/');
+  if (yol === sonSayilan || /localhost|127\.0\.0\.1/.test(location.hostname)) return; sonSayilan = yol;
+  const dene = (n = 0) => { if (window.goatcounter?.count) { try { window.goatcounter.count({ path: yol, title: document.title }); } catch { } } else if (n < 20) setTimeout(() => dene(n + 1), 500); };
+  dene();
+}
 async function route() {
   const path = decodeURIComponent(location.hash.replace(/^#/, '')) || '/';
+  say(path);
   if (typeof cleanup === 'function') { try { cleanup(); } catch { } }
   cleanup = null;
   document.querySelectorAll('.modal-bg').forEach(m => m.remove());
