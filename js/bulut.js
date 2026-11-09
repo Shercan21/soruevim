@@ -10,7 +10,10 @@ const PARCA = { questions: 16, documents: 8 };
 
 let token = null, tokenBitis = 0, tokenClient = null, gisP = null, calisiyor = false, bekleyen = false, zamanlayici = null;
 const durumDinleyici = new Set();
-export const durum = { bagli: false, son: 0, hata: '', calisiyor: false, eposta: '' };
+export const durum = { bagli: false, son: 0, hata: '', calisiyor: false, eposta: '', giris: false };
+const TK = 'soruevim-drive-oturum';
+try { const o = JSON.parse(localStorage.getItem(TK) || 'null'); if (o && o.b > Date.now() + 60000) { token = o.t; tokenBitis = o.b; } } catch { }
+const tokenSakla = () => { try { token ? localStorage.setItem(TK, JSON.stringify({ t: token, b: tokenBitis })) : localStorage.removeItem(TK); } catch { } };
 const yayinla = () => durumDinleyici.forEach(f => { try { f({ ...durum }); } catch { } });
 export const dinle = f => { durumDinleyici.add(f); f({ ...durum }); return () => durumDinleyici.delete(f); };
 
@@ -23,20 +26,24 @@ function gisYukle() {
   gisP = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.onload = res; s.onerror = () => { gisP = null; rej(new Error('Google girişi yüklenemedi (internet?)')); }; document.head.append(s); });
   return gisP;
 }
-async function tokenAl(sessiz) {
+// mod: 'sessiz' (pencere açmaz), 'kullanici' (dokunuşla, izin ekranı yok), 'ilk' (izin ekranı)
+const GIRIS = 'GIRIS_GEREKLI';
+async function tokenAl(mod) {
   if (token && Date.now() < tokenBitis - 60000) return token;
   if (!CLIENT_ID) throw new Error('Google Drive eşitlemesi henüz yapılandırılmadı.');
+  if (mod === 'sessiz') throw new Error(GIRIS); // tarayıcılar dokunuş olmadan Google penceresini engeller
   await gisYukle();
   return new Promise((res, rej) => {
-    tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPE + ' email', prompt: sessiz ? '' : 'consent',
-      callback: r => { if (r.error) return rej(new Error(r.error)); token = r.access_token; tokenBitis = Date.now() + (r.expires_in || 3600) * 1000; res(token); },
-      error_callback: e => rej(new Error(e?.type === 'popup_closed' ? 'Giriş penceresi kapatıldı' : e?.type === 'popup_failed_to_open' ? 'Giriş penceresi açılamadı' : 'Giriş yapılamadı')) });
-    tokenClient.requestAccessToken({ prompt: sessiz ? '' : 'consent' });
+    const prompt = mod === 'ilk' ? 'consent' : '';
+    tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPE + ' email', prompt, hint: durum.eposta || undefined,
+      callback: r => { if (r.error) return rej(new Error(r.error)); token = r.access_token; tokenBitis = Date.now() + (r.expires_in || 3600) * 1000; tokenSakla(); res(token); },
+      error_callback: e => rej(new Error(e?.type === 'popup_closed' ? 'Giriş penceresi kapatıldı' : e?.type === 'popup_failed_to_open' ? 'Giriş penceresi açılamadı — açılır pencerelere izin verin' : 'Giriş yapılamadı')) });
+    tokenClient.requestAccessToken({ prompt });
   });
 }
 async function istek(url, opt = {}) {
   const r = await fetch(url, { ...opt, headers: { Authorization: 'Bearer ' + token, ...(opt.headers || {}) } });
-  if (r.status === 401) { token = null; throw new Error('Oturum süresi doldu; yeniden bağlanın.'); }
+  if (r.status === 401) { token = null; tokenSakla(); throw new Error(GIRIS); }
   if (!r.ok) throw new Error('Drive hatası ' + r.status);
   return r;
 }
@@ -120,26 +127,27 @@ async function esitle() {
   return { degisenYerel, eksikHazir: hazir.filter(p => !yerelHazir.has(p)) };
 }
 
-export async function simdiEsitle({ sessiz = false } = {}) {
+export async function simdiEsitle({ sessiz = false, ilk = false } = {}) {
   if (calisiyor) { bekleyen = true; return; }
   calisiyor = true; durum.calisiyor = true; durum.hata = ''; yayinla();
   try {
-    await tokenAl(sessiz);
+    await tokenAl(ilk ? 'ilk' : sessiz ? 'sessiz' : 'kullanici');
+    durum.giris = false;
     const r = await esitle();
     durum.bagli = true; durum.son = Date.now(); await db.kvSet('bulutSon', durum.son); await db.kvSet('bulutBagli', true);
     if (r.eksikHazir.length) window.dispatchEvent(new CustomEvent('soruevim-hazir-eksik', { detail: r.eksikHazir }));
     if (r.degisenYerel) window.dispatchEvent(new CustomEvent('soruevim-buluttan', { detail: r.degisenYerel }));
-  } catch (e) { durum.hata = e.message || String(e); }
+  } catch (e) { if (e.message === GIRIS) { durum.giris = true; durum.hata = ''; } else durum.hata = e.message || String(e); }
   finally { calisiyor = false; durum.calisiyor = false; yayinla(); if (bekleyen) { bekleyen = false; setTimeout(() => simdiEsitle({ sessiz: true }), 1500); } }
 }
 export async function baglan() {
-  token = null; await simdiEsitle({ sessiz: false });
+  token = null; await simdiEsitle({ ilk: true });
   if (!durum.hata) try { const u = await (await istek('https://www.googleapis.com/oauth2/v3/userinfo')).json(); durum.eposta = u.email || ''; await db.kvSet('bulutEposta', durum.eposta); yayinla(); } catch { }
   return !durum.hata;
 }
 export async function baglantiyiKes() {
   try { if (token && window.google?.accounts?.oauth2) google.accounts.oauth2.revoke(token, () => { }); } catch { }
-  token = null; durum.bagli = false; durum.hata = ''; durum.eposta = ''; await db.kvSet('bulutEposta', ''); await db.kvSet('bulutBagli', false); await db.kvSet('bulutGorulen', {}); yayinla();
+  token = null; tokenSakla(); durum.bagli = false; durum.giris = false; durum.hata = ''; durum.eposta = ''; await db.kvSet('bulutEposta', ''); await db.kvSet('bulutBagli', false); await db.kvSet('bulutGorulen', {}); yayinla();
 }
 // Uygulama açılışında: daha önce bağlandıysa sessizce eşitle; değişikliklerden sonra 8 sn bekleyip eşitle
 export async function baslat() {
