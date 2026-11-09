@@ -341,7 +341,10 @@ async function senaryoCard(onKur) {
   let ozel = (await db.kvGet('ozelSenaryolar')) || [];
   const [ld, ly] = (last.sinav || '').split(/(?<=Dönem) /);
   const st = { sinif: last.sinif || '9. Sınıf', ders: dersIzinli(last.ders) && last.ders ? last.ders : (anaDers() || last.ders || 'Kimya'),
-    donem: DONEMLER.includes(ld) ? ld : DONEMLER[0], yazili: YAZILILAR.includes(ly) ? ly : YAZILILAR[0], sen: '', sayi: {}, puan: {}, mod: last.mod || 'oto' };
+    donem: DONEMLER.includes(ld) ? ld : DONEMLER[0], yazili: YAZILILAR.includes(ly) ? ly : YAZILILAR[0], sen: '', sayi: {}, puan: {}, mod: last.mod || 'oto', oran: last.oran || { 1: 30, 2: 50, 3: 20 } };
+  const ZAD = { 1: 'kolay', 2: 'orta', 3: 'zor' };
+  const kotaHesap = N => { const t = st.oran[1] + st.oran[2] + st.oran[3] || 1; const k1 = Math.round(N * st.oran[1] / t), k3 = Math.round(N * st.oran[3] / t); return { 1: k1, 3: k3, 2: Math.max(0, N - k1 - k3) }; };
+  const zq = q => +q.zorluk || 2;
   const box = h('div');
   const sel = (opts, val, on, attrs = {}) => h('select.inp', { ...attrs, on: { change: e => on(e.target.value) } }, opts.map(o => Array.isArray(o) ? h('option', { value: o[0], selected: o[0] === val }, o[1]) : h('option', { value: o, selected: o === val }, o)));
   const pool = kod => all.filter(q => q.kazanim === kod && q.sinif === st.sinif && (q.ders || '') === st.ders);
@@ -383,6 +386,13 @@ async function senaryoCard(onKur) {
       h('label.fld', 'Senaryo' + (m.length ? '' : ' — bu sınav için MEB senaryosu yok'), sel(secenek, st.sen, v => { st.sen = v; senaryoYukle(); draw(); })),
       h('label.fld', 'Sorular nasıl seçilsin?', sel([['oto', 'Otomatik (depodan)'], ['elle', 'Elle — ben seçeceğim']], st.mod, v => { st.mod = v; }))));
 
+    const yuzde = Array.from({ length: 21 }, (_, i) => String(i * 5));
+    box.append(h('div.row', { style: { gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginTop: '8px' } },
+      h('b.small', 'Zorluk dağılımı:'),
+      ...[1, 2, 3].map(z => h('label.row', { style: { gap: '4px' } }, h('span.chip.lvl' + z, { 1: 'Kolay', 2: 'Orta', 3: 'Zor' }[z]),
+        sel(yuzde.map(v => [v, '%' + v]), String(st.oran[z]), v => { st.oran[z] = +v; ozetCiz(); }, { style: { width: '84px' } }))),
+      h('button.btn.btn-sm.btn-ghost', { type: 'button', on: { click: () => { st.oran = { 1: 30, 2: 50, 3: 20 }; draw(); } } }, 'Önerilen: %30 · %50 · %20')));
+
     // Kazanım tablosu: işaretle + soru sayısı + puan (seçimle)
     const kz = kazanimlar();
     const tablo = h('div', { style: { maxHeight: '46vh', overflow: 'auto', border: '1px solid var(--line)', borderRadius: '10px', marginTop: '10px' } });
@@ -391,7 +401,8 @@ async function senaryoCard(onKur) {
       const n = topla(st.sayi), elle = Object.entries(st.puan).filter(([k, p]) => st.sayi[k] && p).reduce((a, [k, p]) => a + p * st.sayi[k], 0);
       let eksik = 0; for (const [k, v] of Object.entries(st.sayi)) eksik += Math.max(0, v - pool(k).length);
       ozet.innerHTML = '';
-      ozet.append(`Toplam ${n} soru · ${Object.values(st.sayi).filter(Boolean).length} kazanım`, elle ? ` · elle verilen puan ${elle}` + (elle > 100 ? ' ⚠ 100’ü aşıyor' : '') : '',
+      const kt = kotaHesap(n), yt = st.oran[1] + st.oran[2] + st.oran[3];
+      ozet.append(`Toplam ${n} soru · ${Object.values(st.sayi).filter(Boolean).length} kazanım · ${kt[1]} kolay, ${kt[2]} orta, ${kt[3]} zor`, yt !== 100 ? h('span', { style: { color: 'var(--bad)' } }, ` · ⚠ yüzdelerin toplamı ${yt}, 100 olmalı`) : '', elle ? ` · elle verilen puan ${elle}` + (elle > 100 ? ' ⚠ 100’ü aşıyor' : '') : '',
         eksik ? h('span', { style: { color: 'var(--bad)' } }, ` · depoda ${eksik} soru eksik (yerine “soru yazın” kutusu konur)`) : '');
     };
     let tema = null;
@@ -441,19 +452,46 @@ async function senaryoCard(onKur) {
   const kur = async () => {
     const satir = Object.entries(st.sayi).filter(([, n]) => n > 0);
     if (!satir.length) { toast('En az bir kazanım seçin'); return; }
-    await db.kvSet('senaryoSecim', { sinif: st.sinif, ders: st.ders, sinav: st.donem + ' ' + st.yazili, mod: st.mod });
+    if (st.oran[1] + st.oran[2] + st.oran[3] !== 100) { toast('Zorluk yüzdelerinin toplamı 100 olmalı'); return; }
+    await db.kvSet('senaryoSecim', { sinif: st.sinif, ders: st.ders, sinav: st.donem + ' ' + st.yazili, mod: st.mod, oran: st.oran });
     const items = [], used = (await db.all('documents')).flatMap(d => (d.items || []).map(i => i.qid));
+    const N = satir.reduce((a, [, n]) => a + n, 0), kalan = kotaHesap(N);
+    // Bir kazanım için hedef zorlukları belirle: aynı kazanımda tekrar yok (mümkünse), genel kotaya en çok ihtiyaç duyulan önce
+    const hedefler = (n, mevcutZ = []) => {
+      const out = [];
+      for (let k = 0; k < n; k++) {
+        const kull = [...mevcutZ, ...out];
+        const aday = [1, 2, 3].sort((a, b) => (kull.includes(a) - kull.includes(b)) || (kalan[b] - kalan[a]));
+        const z = aday[0]; out.push(z); kalan[z]--;
+      }
+      return out;
+    };
     let sira = 0;
     for (const [kod, n] of satir) {
       sira++;
-      let secilen;
+      let secilen = [], zler;
       if (st.mod === 'elle') {
-        secilen = await pickQuestions({ title: `${sira}/${satir.length} · ${kod} — ${n} soru seçin`, filter: q => q.kazanim === kod && q.sinif === st.sinif && (q.ders || '') === st.ders, max: n });
-        if (secilen === null) return;
-      } else secilen = pool(kod).sort((a, b) => (used.includes(a.id) - used.includes(b.id)) || Math.random() - .5).slice(0, n).map(q => q.id);
+        const bilgi = `Genel hedefe göre kalan: ${Math.max(0, kalan[1])} kolay · ${Math.max(0, kalan[2])} orta · ${Math.max(0, kalan[3])} zor.`;
+        const r = await pickQuestions({ title: `${sira}/${satir.length} · ${kod} — ${n} soru seçin`, filter: q => q.kazanim === kod && q.sinif === st.sinif && (q.ders || '') === st.ders, max: n, farkliZorluk: n > 1, bilgi });
+        if (r === null) return;
+        const byId = Object.fromEntries(all.map(q => [q.id, q]));
+        secilen = r; const sz = r.map(id => zq(byId[id])); sz.forEach(z => kalan[z]--);
+        zler = hedefler(n - r.length, sz);
+      } else {
+        const p = pool(kod).sort((a, b) => (used.includes(a.id) - used.includes(b.id)) || Math.random() - .5);
+        const hedef = hedefler(n), yakin = { 1: [1, 2, 3], 2: [2, 1, 3], 3: [3, 2, 1] };
+        zler = [];
+        for (const z of hedef) {
+          const kullZ = secilen.map(id => zq(p.find(q => q.id === id)));
+          let q = null;
+          for (const zz of yakin[z]) { q = p.find(x => zq(x) === zz && !secilen.includes(x.id) && !kullZ.includes(zz)); if (q) break; }
+          if (!q) q = p.find(x => !secilen.includes(x.id));
+          if (q) { secilen.push(q.id); if (zq(q) !== z) { kalan[z]++; kalan[zq(q)]--; } } else zler.push(z);
+        }
+      }
       for (const qid of secilen) items.push({ qid, puan: st.puan[kod] || 0 });
-      for (let k = secilen.length; k < n; k++) {
-        const q = { id: uid(), type: 'klasik', text: `(${kod} için soru yazın: ${ciktiMetni(kod)})`, choices: [], answer: '', ders: st.ders, sinif: st.sinif, kazanim: kod, zorluk: 2, created: Date.now(), yerTutucu: true };
+      for (const z of zler) {
+        const q = { id: uid(), type: 'klasik', text: `(${kod} için ${ZAD[z]} bir soru yazın: ${ciktiMetni(kod)})`, choices: [], answer: '', ders: st.ders, sinif: st.sinif, kazanim: kod, zorluk: z, created: Date.now(), yerTutucu: true };
         await db.put('questions', q); items.push({ qid: q.id, puan: st.puan[kod] || 0 });
       }
     }

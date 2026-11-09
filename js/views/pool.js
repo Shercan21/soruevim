@@ -410,7 +410,7 @@ export async function editQuestion(q, onSaved, { preset = {}, list = null } = {}
 }
 
 // ---------- Havuzdan seçici ----------
-export async function pickQuestions({ exclude = [], title = 'Depodan soru seç', filter, preset = {}, max = 0, tekKazanim = false, kazanimMax = tekKazanim ? 1 : 0 } = {}) {
+export async function pickQuestions({ exclude = [], title = 'Depodan soru seç', filter, preset = {}, max = 0, tekKazanim = false, kazanimMax = tekKazanim ? 1 : 0, farkliZorluk = false, bilgi = '' } = {}) {
   let all = (await db.all('questions')).filter(soruIzinli).sort((a, b) => b.created - a.created);
   if (filter) all = all.filter(filter);
   const ex = new Set(exclude);
@@ -422,11 +422,13 @@ export async function pickQuestions({ exclude = [], title = 'Depodan soru seç',
     const cnt = h('b', max ? '0 / ' + max : '0');
     const byId = Object.fromEntries(all.map(q => [q.id, q]));
     const kzOf = q => q.kazanim || ('konu:' + (q.konu || q.id));
-    const kural = !!(max || kazanimMax);
+    const kural = !!(max || kazanimMax || farkliZorluk);
+    const zz = q => +q.zorluk || 2;
     const pasifMi = q => {
       if (chosen.includes(q.id)) return '';
       if (max && chosen.length >= max) return `En çok ${max} soru seçebilirsiniz`;
       if (kazanimMax && chosen.filter(id => kzOf(byId[id]) === kzOf(q)).length >= kazanimMax) return kazanimMax === 1 ? 'Bu kazanımdan zaten bir soru seçtiniz' : `Bu kazanımdan en çok ${kazanimMax} soru seçebilirsiniz`;
+      if (farkliZorluk && chosen.some(id => kzOf(byId[id]) === kzOf(q) && zz(byId[id]) === zz(q))) return 'Bu kazanımdan bu zorlukta bir soru seçtiniz; diğerini farklı zorlukta seçin';
       return '';
     };
     const render = () => {
@@ -452,7 +454,7 @@ export async function pickQuestions({ exclude = [], title = 'Depodan soru seç',
     const finish = v => { if (done) return; done = true; m.close(); resolve(v); };
     const m = modal(title, h('div',
       filterBar(all, s => { st = s; render(); }, preset),
-      kural ? h('p.small.muted', { style: { margin: '0 0 8px' } }, [max ? `En çok ${max} soru seçebilirsiniz.` : '', kazanimMax ? (kazanimMax === 1 ? 'Bir kazanımdan soru seçince aynı kazanımın diğer soruları soluklaşır.' : `Bir kazanımdan ${kazanimMax} soru seçince o kazanımın diğer soruları soluklaşır.`) : ''].filter(Boolean).join(' ')) : null,
+      kural ? h('p.small.muted', { style: { margin: '0 0 8px' } }, [max ? `En çok ${max} soru seçebilirsiniz.` : '', kazanimMax ? (kazanimMax === 1 ? 'Bir kazanımdan soru seçince aynı kazanımın diğer soruları soluklaşır.' : `Bir kazanımdan ${kazanimMax} soru seçince o kazanımın diğer soruları soluklaşır.`) : '', farkliZorluk ? 'Aynı kazanımdan iki soru aynı zorlukta olamaz.' : '', bilgi].filter(Boolean).join(' ')) : null,
       kural ? null : h('div.row', { style: { marginBottom: '8px' } },
         h('button.btn.btn-sm', { on: { click: () => { applyFilter(all, st).filter(q => !ex.has(q.id) && !chosen.includes(q.id)).forEach(q => chosen.push(q.id)); cnt.textContent = chosen.length; render(); } } }, 'Görünenlerin hepsini seç'),
         h('label.row.small', 'Rastgele ', h('input.inp', { type: 'number', min: 1, value: 10, style: { width: '64px' }, id: 'rndN' }), h('button.btn.btn-sm', { on: { click: () => { const n = +document.getElementById('rndN').value || 10; const pool = applyFilter(all, st).filter(q => !ex.has(q.id) && !chosen.includes(q.id)).sort(() => Math.random() - .5).slice(0, n); pool.forEach(q => chosen.push(q.id)); cnt.textContent = chosen.length; render(); } } }, 'seç')),
