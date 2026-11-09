@@ -50,7 +50,7 @@ export async function introView(app, kind, opts = {}) {
   const kzBox = (kind === 'test' || kind === 'tarama') ? await kazanimCard(kind, !!opts.qids?.length) : null;
   const start = async (bos) => {
     let sec = null;
-    if (kzBox && bos !== true) { sec = kzBox.secim(); if (!sec) return; }
+    if (kzBox && bos !== true) { sec = await kzBox.secim(); if (!sec) return; }
     const d = newDoc(kind, { tur: tur || 'serbest', qids: opts.qids, variant: kind });
     if (sec) {
       Object.assign(d.meta, { sinif: sec.sinif, ders: sec.ders, konu: sec.konu, kazanimlar: sec.kodlar });
@@ -150,11 +150,11 @@ async function kazanimCard(kind, seciliSoruVar) {
     if (!st.adetElle) st.adet = oneri();
     const say = uygun().reduce((a, q) => (a[zor(q)]++, a), { 1: 0, 2: 0, 3: 0 });
     box.append(h('div.row', { style: { marginTop: '12px', gap: '14px', flexWrap: 'wrap', alignItems: 'center' } },
-      h('label.row', { style: { gap: '6px' } }, h('input', { type: 'checkbox', checked: st.doldur, on: { change: e => { st.doldur = e.target.checked; draw(); } } }), 'Soruları depodan otomatik seç'),
+      h('div.seg', [[true, '⚡ Otomatik seç'], [false, '✋ Kendim seçeyim']].map(([v, l]) => h('button' + (st.doldur === v ? '.on' : ''), { type: 'button', on: { click: () => { st.doldur = v; draw(); } } }, l))),
       st.doldur ? h('label.row', { style: { gap: '6px' } }, 'Toplam soru', h('input.inp', { type: 'number', min: 1, max: 100, value: st.adet, style: { width: '80px' }, on: { input: e => { st.adet = Math.max(1, Math.min(100, +e.target.value || 1)); st.adetElle = true; ozet(); } } })) : null,
       st.doldur ? h('span.small.muted', `Önerilen: ${oneri()} soru`, st.adetElle && st.adet !== oneri() ? h('button.btn.btn-sm.btn-ghost', { type: 'button', on: { click: () => { st.adetElle = false; draw(); } } }, 'Öneriyi uygula') : null) : null,
       h('span.small.muted', st.secili.size ? `${st.secili.size} kazanım seçili · uygun ${toplam} soru` : 'Henüz kazanım seçilmedi')));
-    if (!st.doldur) return;
+    if (!st.doldur) { box.append(h('p.small.muted', { style: { marginTop: '8px' } }, '“Testi kur”a bastığınızda seçtiğiniz kazanımların soruları listelenir; istediklerinizi işaretleyip ekleyin.')); return; }
     const ad = { 1: 'Kolay', 2: 'Orta', 3: 'Zor' };
     const ozetEl = h('div.small.muted', { style: { marginTop: '6px' } });
     const ozet = () => {
@@ -168,7 +168,7 @@ async function kazanimCard(kind, seciliSoruVar) {
   };
   const kota = () => { const t = st.oran[1] + st.oran[2] + st.oran[3] || 1; const k1 = Math.round(st.adet * st.oran[1] / t), k3 = Math.round(st.adet * st.oran[3] / t); return { 1: k1, 3: k3, 2: Math.max(0, st.adet - k1 - k3) }; };
   draw();
-  box.secim = () => {
+  box.secim = async () => {
     if (!st.secili.size) { toast(tek ? 'Bir kazanım seçin' : 'En az bir kazanım seçin'); box.scrollIntoView({ behavior: 'smooth' }); return null; }
     db.kvSet('kazanimSecim', { sinif: st.sinif, ders: st.ders });
     const kodlar = [...st.secili];
@@ -182,6 +182,13 @@ async function kazanimCard(kind, seciliSoruVar) {
       al(st.adet - qids.length, q => zor(q) === '2'); al(st.adet - qids.length, () => true); // eksik kalanı diğer zorluklardan tamamla
       // kolaydan zora sırala
       const byId = Object.fromEntries(all.map(q => [q.id, q])); qids.sort((a, b) => zor(byId[a]) - zor(byId[b]));
+    }
+    if (!st.doldur) {
+      const uyan = new Set([...st.secili].flatMap(k => havuz(k).filter(q => !(tek && st.alt) || (q.altKazanim || '').trim() === st.alt)).map(q => q.id));
+      if (!uyan.size) { toast('Seçtiğiniz kazanımlarda depoda soru yok'); return null; }
+      const sec = await pickQuestions({ title: `Soru seçin — ${uyan.size} uygun soru`, filter: q => uyan.has(q.id) });
+      if (!sec?.length) return null;
+      qids = sec;
     }
     const konu = tek ? ((st.alt ? st.alt + ' · ' : '') + (ciktiMetni(kodlar[0]) || kodlar[0])) : [...new Set(kodlar.map(k => (OGRENME_CIKTILARI[st.sinif] || []).find(x => x.kod === k)?.tema).filter(Boolean))].join(', ');
     return { sinif: st.sinif, ders: st.ders, kodlar, konu, qids, eksik: st.doldur && qids.length < st.adet };
