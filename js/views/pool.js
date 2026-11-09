@@ -4,7 +4,7 @@ import { rich, KINDS } from '../render.js';
 import { LAYOUTS } from '../design.js';
 import { editImage, trimWhitespace } from './imgtools.js';
 import { OGRENME_CIKTILARI, SENARYOLAR, SENARYO_YILI, ciktiMetni } from '../meb.js';
-import { dersSuz, soruIzinli, dersIzinli, anaDers, ozelKazanimFormu } from '../brans.js';
+import { dersSuz, soruIzinli, dersIzinli, anaDers, ozelKazanimFormu, tumDersler, brans } from '../brans.js';
 
 export const QTYPES = { coktan: 'Çoktan seçmeli', dy: 'Doğru / Yanlış', bosluk: 'Boşluk doldurma', klasik: 'Klasik (açık uçlu)' };
 export const LEVELS = { 1: 'Kolay', 2: 'Orta', 3: 'Zor' };
@@ -12,6 +12,7 @@ export const SINIFLAR = Array.from({ length: 12 }, (_, i) => (i + 1) + '. Sını
 const TUM_DERSLER = ['Kimya', 'Fizik', 'Biyoloji', 'Matematik', 'Türkçe', 'Türk Dili ve Edebiyatı', 'Tarih', 'Coğrafya', 'Felsefe', 'Din Kültürü ve Ahlak Bilgisi', 'İngilizce', 'Fen Bilimleri', 'Sosyal Bilgiler', 'Hayat Bilgisi', 'T.C. İnkılap Tarihi ve Atatürkçülük', 'Görsel Sanatlar', 'Müzik', 'Kur’an-ı Kerim', 'Peygamberimizin Hayatı'];
 export const DERSLER_TUM = TUM_DERSLER;
 export const dersListesi = () => dersSuz(TUM_DERSLER);
+const dersListesiTum = () => brans()?.dersler || [];
 export const HAZIR_PAKETLER = [
   { id: 'kimya9', ad: '9. Sınıf Kimya Soru Bankası', yazar: 'Hasan', adet: 1396, url: './paketler/kimya9.json', ders: 'Kimya' },
   { id: 'kimya10', ad: '10. Sınıf Kimya Soru Bankası', yazar: 'Hasan', adet: 1094, url: './paketler/kimya10.json', ders: 'Kimya' },
@@ -50,13 +51,19 @@ export function filterBar(allSrc, onChange, preset = {}) {
   const short = v => v.length > 56 ? v.slice(0, 56) + '…' : v;
   const refreshDeps = () => {
     const all = getAll();
-    const sin = sortTr([...new Set(all.map(x => x.sinif).filter(Boolean))]);
-    const der = sortTr([...new Set(all.filter(x => !st.sinif || x.sinif === st.sinif).map(x => x.ders).filter(Boolean))]);
+    // Branşın dersleri ve o derslerin okutulduğu sınıflar, depo boşken de listede görünür
+    const bransDers = tumDersler() ? [] : dersListesiTum();
+    const mebSinif = Object.keys(OGRENME_CIKTILARI).filter(g => bransDers.length && OGRENME_CIKTILARI[g].some(o => bransDers.includes(o.ders)));
+    const sin = sortTr([...new Set([...all.map(x => x.sinif).filter(Boolean), ...mebSinif])]);
+    const der = sortTr([...new Set([...all.filter(x => !st.sinif || x.sinif === st.sinif).map(x => x.ders).filter(Boolean),
+      ...bransDers.filter(d => !st.sinif || (OGRENME_CIKTILARI[st.sinif] || []).some(o => o.ders === d) || !Object.keys(OGRENME_CIKTILARI).some(g => OGRENME_CIKTILARI[g].some(o => o.ders === d)))])]);
     if (!fill(selects.sinif, 'Tüm sınıflar', sin.map(x => [x, x]), st.sinif)) st.sinif = '';
     if (!fill(selects.ders, 'Tüm dersler', der.map(x => [x, x]), st.ders)) st.ders = '';
     const konular = sortTr([...new Set(sub().map(x => x.konu).filter(Boolean))]);
     if (!fill(selects.konu, 'Tüm konular', konular.map(v => [v, short(v)]), st.konu)) st.konu = '';
-    const kaz = sortTr([...new Set(sub(true).map(x => x.kazanim).filter(Boolean))]);
+    const mebDers = st.ders ? [st.ders] : bransDers;
+    const mebKaz = mebDers.length ? (st.sinif ? [st.sinif] : Object.keys(OGRENME_CIKTILARI)).flatMap(g => (OGRENME_CIKTILARI[g] || []).filter(o => mebDers.includes(o.ders)).map(o => o.kod)) : [];
+    const kaz = sortTr([...new Set([...sub(true).map(x => x.kazanim).filter(Boolean), ...mebKaz])]);
     if (!fill(selects.kazanim, 'Tüm kazanımlar', kaz.map(v => [v, short(v + (ciktiMetni(v) ? ' — ' + ciktiMetni(v) : ''))]), st.kazanim)) st.kazanim = '';
   };
   const bar = h('div.row', { style: { margin: '12px 0', gap: '6px' } },
