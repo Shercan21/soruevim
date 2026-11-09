@@ -75,7 +75,7 @@ export function defaultAyar(kind) {
     anahtar: kind !== 'yazili', ogrenmeCiktilari: false, cozumler: 'yok', anahtarYeri: 'ayri', optik: kind === 'deneme',
     kapak: kind === 'deneme' || kind === 'banka', icindekiler: kind === 'banka', kaynak: '', karekod: '',
     yonerge: '', yonergeYer: 'ust', imzalar: [], cevapAlani: 'cerceve', cevapYukseklik: 40,
-    kitapciklar: ['A'], cols: kind === 'foy' || kind === 'yazili' ? 1 : 2, foyCevap: 'yok',
+    kitapciklar: ['A'], cols: kind === 'foy' || kind === 'yazili' ? 1 : 2, foyCevap: 'yok', akilli: kind === 'foy' ? 'yok' : 'ikisi',
   };
 }
 
@@ -337,6 +337,13 @@ async function paginate(host, ctx, blocks, { cols = 2, startPage = 1, firstHeade
   // boş bantları/sayfaları temizle
   for (const p of pages) p.querySelectorAll('.band').forEach(bd => { if (!bd.querySelector('.col > *')) bd.remove(); });
   while (pages.length > 1 && !pages.at(-1).querySelector('.col > *')) pages.pop().remove();
+  // akıllı yerleştirme: dolu sayfalarda artan boşluğu sorular arasına eşit dağıt (son sayfa yukarıdan dizilir)
+  if (['esit', 'ikisi'].includes(ctx.ayar.akilli)) for (const p of pages.slice(0, -1)) {
+    const bands = p.querySelectorAll('.pg-body > .band'); const last = bands[bands.length - 1];
+    if (!last) continue;
+    last.style.flex = '1';
+    last.querySelectorAll(':scope > .col').forEach(c => { if (c.childElementCount > 1) Object.assign(c.style, { display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }); });
+  }
   // sayfa altı notlar
   if (notes) for (const p of pages) {
     const ns = [...p.querySelectorAll('[data-note]')].map(e => e.dataset.note);
@@ -410,7 +417,21 @@ export function orderedItems(items, kit, seed) {
 }
 
 // ---------- Ana giriş ----------
-export async function renderDoc(host, doc, qmap, brand, { teacher = false, small = false } = {}) {
+// Akıllı yerleştirme "daha az sayfa": boşluğu kademeli daraltıp sayfa sayısı azalıyorsa onu kullanır
+export async function renderDoc(host, doc, qmap, brand, opts = {}) {
+  const a = { ...defaultAyar(doc.kind), ...(doc.ayar || {}) };
+  const n = await renderDocOnce(host, doc, qmap, brand, opts);
+  const soru = (doc.items?.length || 0) + (doc.sections || []).reduce((t, s) => t + (s.qids?.length || 0), 0);
+  if (!['az', 'ikisi'].includes(a.akilli) || n < 2 || soru > 150) return n;
+  const base = a.bosluk ?? 10;
+  for (const g of [base * 0.7, base * 0.45, 2].filter(x => x < base - 0.5)) {
+    const m = await renderDocOnce(host, { ...doc, ayar: { ...doc.ayar, bosluk: Math.round(g * 2) / 2 } }, qmap, brand, opts);
+    if (m < n) { host.dataset.daraltildi = String(Math.round(g * 2) / 2); return m; }
+  }
+  delete host.dataset.daraltildi;
+  return renderDocOnce(host, doc, qmap, brand, opts);
+}
+async function renderDocOnce(host, doc, qmap, brand, { teacher = false, small = false } = {}) {
   host.innerHTML = '';
   const ayar = { ...defaultAyar(doc.kind), ...(doc.ayar || {}) };
   ayar.ogrenci = { ...defaultAyar(doc.kind).ogrenci, ...(doc.ayar?.ogrenci || {}) };
