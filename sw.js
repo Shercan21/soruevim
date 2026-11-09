@@ -1,5 +1,5 @@
 /* Soru Evim service worker — uygulama kabuğu önbellekte, veriler IndexedDB'de. */
-const VERSION = 'v2.9.10';
+const VERSION = 'v2.9.11';
 const SHELL = `soruevim-shell-${VERSION}`;
 const RUNTIME = 'soruevim-runtime';
 const SHELL_FILES = [
@@ -47,6 +47,7 @@ self.addEventListener('fetch', event => {
     event.respondWith((async () => {
       try {
         const net = await fetch(req);
+        if (!net.ok) throw new Error('site yanıt vermedi ' + net.status); // site kapalıysa / 404 ise önbellekteki uygulamayı aç
         const cache = await caches.open(SHELL);
         cache.put('./index.html', net.clone());
         return net;
