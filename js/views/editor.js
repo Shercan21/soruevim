@@ -114,7 +114,7 @@ const bolumDersleri = (ad, tur) => BOLUM_DERS[ad] ? (tur?.aile === 'LGS' && ad =
 const turSiniflari = tur => tur?.aile === 'LGS' ? ['5. Sınıf', '6. Sınıf', '7. Sınıf', '8. Sınıf'] : tur?.id?.startsWith('tyt') ? ['9. Sınıf', '10. Sınıf'] : tur?.id?.startsWith('ayt') ? ['11. Sınıf', '12. Sınıf'] : null;
 async function denemeDoldurCard(getTur) {
   const all = await db.all('questions');
-  const st = { mod: 'oto', oran: { 1: 30, 2: 50, 3: 20 }, zor: '', sinif: '' };
+  const st = { mod: 'oto', oran: { 1: 30, 2: 50, 3: 20 }, zor: '', sinif: '', kzMax: 1 };
   const zor = q => ['1', '2', '3'].includes(String(q.zorluk)) ? String(q.zorluk) : '2';
   const box = h('div.card', { style: { marginTop: '12px' } });
   const havuzu = (bolum, tur) => { const ds = bolumDersleri(bolum, tur); const sn = st.sinif ? [st.sinif] : turSiniflari(tur); return all.filter(q => ds.includes(q.ders) && (!sn || sn.includes(q.sinif))); };
@@ -122,22 +122,24 @@ async function denemeDoldurCard(getTur) {
     box.innerHTML = '';
     const tur = denemeTuru(getTur());
     box.append(h('h3', { style: { margin: '0 0 4px' } }, 'Sorular nasıl yerleşsin?'),
-      h('p.small.muted', { style: { margin: '0 0 10px' } }, 'Soru sayıları seçtiğiniz deneme türünden gelir. Otomatikte her bölüme o bölümün kazanımlarından dengeli dağılımla, her kazanımdan en çok bir soru konur.'),
+      h('p.small.muted', { style: { margin: '0 0 10px' } }, 'Soru sayıları seçtiğiniz deneme türünden gelir. Sorular bölümün kazanımlarına dengeli dağıtılır.'),
       h('div.seg', [['oto', '⚡ Otomatik'], ['elle', '✋ Kendim seçeyim'], ['bos', '☐ Boş başla']].map(([v, l]) => h('button' + (st.mod === v ? '.on' : ''), { type: 'button', on: { click: () => { st.mod = v; draw(); } } }, l))));
     if (st.mod === 'bos') return;
     if (tur?.aile === 'Serbest') box.append(h('label.fld', { style: { marginTop: '10px', maxWidth: '260px' } }, 'Hangi sınıfın soruları?', h('select.inp', { on: { change: e => { st.sinif = e.target.value; draw(); } } },
       [['', 'Bütün sınıflar'], ...Array.from({ length: 8 }, (_, i) => [(i + 5) + '. Sınıf', (i + 5) + '. Sınıf'])].map(([v, l]) => h('option', { value: v, selected: v === st.sinif }, l)))));
+    box.append(h('div.row', { style: { marginTop: '10px', gap: '8px', flexWrap: 'wrap', alignItems: 'center' } }, h('b.small', 'Kazanım başına en çok'),
+      h('div.seg', [[1, '1 soru'], [2, '2 soru'], [3, '3 soru'], [0, 'Sınırsız']].map(([v, l]) => h('button' + (st.kzMax === v ? '.on' : ''), { type: 'button', on: { click: () => { st.kzMax = v; draw(); } } }, l)))));
     const tablo = h('table.table', { style: { marginTop: '10px', fontSize: '.9rem' } }, h('tr', h('th', 'Bölüm'), h('th', 'Soru'), h('th', 'Depoda'), h('th', 'Kazanım')));
     for (const b of tur?.bolumler || []) {
       const p = havuzu(b.name, tur); const kz = new Set(p.map(q => q.kazanim || q.konu || q.id)).size;
-      tablo.append(h('tr', h('td', b.name), h('td', String(b.n || '—')), h('td', String(p.length)), h('td', { style: { color: st.mod === 'oto' && b.n > kz ? '#c0392b' : '' } }, String(kz))));
+      tablo.append(h('tr', h('td', b.name), h('td', String(b.n || '—')), h('td', String(p.length)), h('td', { style: { color: st.kzMax && b.n > kz * st.kzMax ? '#c0392b' : '' } }, String(kz))));
     }
     box.append(tablo);
     if (st.mod === 'oto') {
       box.append(h('div.row', { style: { marginTop: '10px', gap: '10px', flexWrap: 'wrap', alignItems: 'center' } }, h('b.small', 'Zorluk yüzdesi'),
         ...['1', '2', '3'].map(z => h('label.row', { style: { gap: '4px' } }, h('span.chip.lvl' + z, { 1: 'Kolay', 2: 'Orta', 3: 'Zor' }[z]), h('input.inp', { type: 'number', min: 0, max: 100, step: 5, value: st.oran[z], style: { width: '70px' }, on: { input: e => { st.oran[z] = Math.max(0, Math.min(100, +e.target.value || 0)); } } }), '%')),
         h('button.btn.btn-sm.btn-ghost', { type: 'button', on: { click: () => { st.oran = { 1: 30, 2: 50, 3: 20 }; draw(); } } }, 'Önerilen: %30 · %50 · %20')),
-        h('p.small.muted', 'Bir bölümün kazanım sayısı soru sayısından azsa (kırmızı), o bölüm eksik kalır; eksikleri belgede elle tamamlayabilirsiniz.'));
+        h('p.small.muted', 'Kırmızı: bu sınırla bölüm dolmuyor; “Kazanım başına en çok” değerini artırın ya da eksikleri belgede elle tamamlayın.'));
     } else {
       box.append(h('div.row', { style: { marginTop: '10px', gap: '8px', flexWrap: 'wrap', alignItems: 'center' } }, h('b.small', 'Listelenecek sorular'),
         ...[['', 'Hepsi'], ['1', 'Kolay'], ['2', 'Orta'], ['3', 'Zor']].map(([v, l]) => h('button.chip-btn' + (st.zor === v ? '.on' : ''), { type: 'button', on: { click: () => { st.zor = v; draw(); } } }, l))),
@@ -154,7 +156,7 @@ async function denemeDoldurCard(getTur) {
       if (st.mod === 'elle') {
         const ids = new Set(pool.map(q => q.id));
         if (!ids.size) continue;
-        const r = await pickQuestions({ title: `${sec.name} — ${sec.hedef ? sec.hedef + ' soru seçin' : 'soru seçin'}`, filter: q => ids.has(q.id), preset: st.zor ? { zorluk: st.zor } : {}, max: sec.hedef || 0, tekKazanim: true });
+        const r = await pickQuestions({ title: `${sec.name} — ${sec.hedef ? sec.hedef + ' soru seçin' : 'soru seçin'}`, filter: q => ids.has(q.id), preset: st.zor ? { zorluk: st.zor } : {}, max: sec.hedef || 0, kazanimMax: st.kzMax });
         if (r === null) return false;
         sec.qids = r; continue;
       }
@@ -163,13 +165,20 @@ async function denemeDoldurCard(getTur) {
       const gmap = new Map();
       for (const q of shuffle(pool)) { const k = q.kazanim || ('konu:' + (q.konu || '?')); if (!gmap.has(k)) gmap.set(k, []); gmap.get(k).push(q); }
       const keys = [...gmap.keys()].sort((a, b) => a.localeCompare(b, 'tr', { numeric: true }));
-      const secilen = keys.length <= n ? keys : Array.from({ length: n }, (_, i) => keys[Math.floor(i * keys.length / n)]);
+      // her turda bütün kazanımlardan birer soru; son eksik tur kazanımlara eşit aralıkla yayılır
+      const secilen = []; const tavan = st.kzMax || Infinity;
+      for (let tur = 0; tur < tavan && secilen.length < n; tur++) {
+        const uygun = keys.filter(k => gmap.get(k).length > tur); if (!uygun.length) break;
+        const kalanN = n - secilen.length;
+        secilen.push(...(uygun.length <= kalanN ? uygun : Array.from({ length: kalanN }, (_, i) => uygun[Math.floor(i * uygun.length / kalanN)])));
+      }
+      secilen.sort((a, b) => keys.indexOf(a) - keys.indexOf(b));
       const t = st.oran[1] + st.oran[2] + st.oran[3]; const k1 = Math.round(secilen.length * st.oran[1] / t), k3 = Math.round(secilen.length * st.oran[3] / t);
       const kota = { 1: k1, 3: k3, 2: secilen.length - k1 - k3 }, kalan = { ...kota };
       const yakin = { 1: ['1', '2', '3'], 2: ['2', '1', '3'], 3: ['3', '2', '1'] };
       sec.qids = secilen.map(k => {
         const z = ['3', '1', '2'].sort((a, b) => kalan[b] / (kota[b] || 1) - kalan[a] / (kota[a] || 1)).find(z => kalan[z] > 0) || '2'; kalan[z]--;
-        const g = gmap.get(k); for (const zz of yakin[z]) { const q = g.find(q => zor(q) === zz); if (q) return q.id; } return g[0].id;
+        const g = gmap.get(k); for (const zz of yakin[z]) { const j = g.findIndex(q => zor(q) === zz); if (j >= 0) return g.splice(j, 1)[0].id; } return g.shift().id;
       });
       eksik += Math.max(0, n - sec.qids.length);
     }
