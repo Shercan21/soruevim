@@ -260,3 +260,11 @@
   #printRoot .stamps img{cursor:default}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+
+/* Sayfa altı cevap tablosu — sağda / solda */
+.sheet .pg-notes.sag,.sheet .pg-notes.sol{border:.35mm solid var(--acc);border-radius:1.5mm;padding:1mm 2mm;max-width:62%;width:max-content}
+.sheet .pg-notes.sag{align-self:flex-end}.sheet .pg-notes.sol{align-self:flex-start}
+.sheet .pg-notes .kt-baslik{font-weight:700;color:var(--acc);font-size:.9em;margin-bottom:.6mm}
+.sheet .pg-notes .kt-grid{display:grid;grid-template-columns:repeat(10,auto);gap:.4mm 2.6mm}
+.sheet .pg-notes .kt-grid span{display:flex;gap:.8mm;white-space:nowrap}
+.sheet .pg-notes .kt-grid i{font-style:normal;color:#555}.sheet .pg-notes .kt-grid b{color:#111}

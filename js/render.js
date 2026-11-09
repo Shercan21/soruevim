@@ -349,7 +349,9 @@ async function paginate(host, ctx, blocks, { cols = 2, startPage = 1, firstHeade
     const ns = [...p.querySelectorAll('[data-note]')].map(e => e.dataset.note);
     const box = p.querySelector('.pg-notes');
     if (!ns.length) { box.style.visibility = 'hidden'; continue; }
-    box.innerHTML = ns.map(n => { const [a, b] = n.split(': '); return `<b>${esc(a)}:</b> ${esc(b || '')}`; }).join('  ·  ');
+    if (notes === 'sag' || notes === 'sol') {
+      box.innerHTML = '<div class="kt-baslik">Cevaplar</div><div class="kt-grid">' + ns.map(n => { const [a, b] = n.split(': '); return `<span><i>${esc(a.replace(/^\D+/, '') || a)}</i><b>${esc(b || '')}</b></span>`; }).join('') + '</div>';
+    } else box.innerHTML = ns.map(n => { const [a, b] = n.split(': '); return `<b>${esc(a)}:</b> ${esc(b || '')}`; }).join('  ·  ');
   }
   return pages;
 }
