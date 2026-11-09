@@ -119,7 +119,7 @@ function bulutKart() {
     kart.innerHTML = '';
     kart.append(h('div', { style: { fontSize: '1.8rem' } }, '☁️'),
       h('div', { style: { flex: '1 1 260px' } },
-        h('b', d.bagli ? 'Google Drive ile eşitleniyor' : 'Google Drive ile eşitle'),
+        h('b', d.bagli ? 'Google Drive ile eşitleniyor' : 'Google Drive ile eşitle', d.bagli && d.eposta ? h('span.small.muted', ' · ' + d.eposta) : null),
         h('div.small.muted', d.bagli
           ? (d.calisiyor ? 'Eşitleniyor…' : d.hata ? '⚠ ' + d.hata : 'Son eşitleme: ' + saat(d.son))
           : 'İsteğe bağlı. Sorularınız ve belgeleriniz kendi Google Drive’ınızda saklanır; telefon ve bilgisayarda aynı depoyu kullanırsınız. Giriş yapmazsanız her şey yalnızca bu cihazda kalır.')),

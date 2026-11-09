@@ -2,7 +2,7 @@
 // İzin: drive.appdata — yalnızca Soru Evim'in kendi klasörü; kullanıcının diğer dosyalarına erişilmez.
 import { db, IZLENEN, KV_IZLENEN } from './db.js';
 
-export const CLIENT_ID = (typeof window !== 'undefined' && window.__SE_CLIENT_ID) || '';   // Google Cloud → OAuth istemci kimliği (Web)
+export const CLIENT_ID = (typeof window !== 'undefined' && window.__SE_CLIENT_ID) || '515366089050-vph5381uanuinuurnqaqnhbejc0a5o82.apps.googleusercontent.com';
 const SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 const API = 'https://www.googleapis.com/drive/v3';
 const UP = 'https://www.googleapis.com/upload/drive/v3';
@@ -132,14 +132,18 @@ export async function simdiEsitle({ sessiz = false } = {}) {
   } catch (e) { durum.hata = e.message || String(e); }
   finally { calisiyor = false; durum.calisiyor = false; yayinla(); if (bekleyen) { bekleyen = false; setTimeout(() => simdiEsitle({ sessiz: true }), 1500); } }
 }
-export async function baglan() { token = null; await simdiEsitle({ sessiz: false }); return !durum.hata; }
+export async function baglan() {
+  token = null; await simdiEsitle({ sessiz: false });
+  if (!durum.hata) try { const u = await (await istek('https://www.googleapis.com/oauth2/v3/userinfo')).json(); durum.eposta = u.email || ''; await db.kvSet('bulutEposta', durum.eposta); yayinla(); } catch { }
+  return !durum.hata;
+}
 export async function baglantiyiKes() {
   try { if (token && window.google?.accounts?.oauth2) google.accounts.oauth2.revoke(token, () => { }); } catch { }
-  token = null; durum.bagli = false; durum.hata = ''; await db.kvSet('bulutBagli', false); await db.kvSet('bulutGorulen', {}); yayinla();
+  token = null; durum.bagli = false; durum.hata = ''; durum.eposta = ''; await db.kvSet('bulutEposta', ''); await db.kvSet('bulutBagli', false); await db.kvSet('bulutGorulen', {}); yayinla();
 }
 // Uygulama açılışında: daha önce bağlandıysa sessizce eşitle; değişikliklerden sonra 8 sn bekleyip eşitle
 export async function baslat() {
-  durum.bagli = !!(await db.kvGet('bulutBagli')); durum.son = (await db.kvGet('bulutSon')) || 0; yayinla();
+  durum.bagli = !!(await db.kvGet('bulutBagli')); durum.son = (await db.kvGet('bulutSon')) || 0; durum.eposta = (await db.kvGet('bulutEposta')) || ''; yayinla();
   window.addEventListener('soruevim-degisti', () => { if (!durum.bagli) return; clearTimeout(zamanlayici); zamanlayici = setTimeout(() => simdiEsitle({ sessiz: true }), 8000); });
   if (durum.bagli && CLIENT_ID && navigator.onLine) setTimeout(() => simdiEsitle({ sessiz: true }), 2500);
 }
