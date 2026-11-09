@@ -59,6 +59,7 @@ export const db = {
   kvGet: key => ham.kvGet(key),
   kvSet: async (key, val, opt = {}) => { const r = await ham.kvSet(key, val); if (KV_IZLENEN.includes(key) && !opt.bulut) { const z = (await ham.kvGet('kvZaman')) || {}; z[key] = Date.now(); await ham.kvSet('kvZaman', z); degisti(); } return r; },
   async exportAll() {
+    try { await db.kvSet('sonYedek', Date.now()); } catch { }
     const out = { app: 'soruevim', version: 1, exportedAt: new Date().toISOString() };
     for (const s of STORES.filter(x => x !== 'kv' && x !== 'files')) out[s] = await db.all(s);
     out.brand = await db.kvGet('brand');

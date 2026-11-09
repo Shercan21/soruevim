@@ -91,7 +91,12 @@ const openInp = h('input', { type: 'file', accept: '.soruevim,.json,application/
       const doc = { ...d.belge, updated: Date.now() };
       if (await db.get('documents', doc.id)) doc.id = crypto.randomUUID();
       await db.put('documents', doc); toast('Belge açıldı'); location.hash = '#/belge/' + doc.id;
-    } else if (d.app === 'soruevim') { await db.importAll(d); toast('Yedek içe aktarıldı'); location.reload(); }
+    } else if (d.app === 'soruevim' && (d.tip === 'paylasim' || d.tip === 'havuz')) {
+      const { paylasimAl } = await import('./views/pool.js');
+      const r = await paylasimAl(d);
+      toast(`${d.kimden ? d.kimden + ' paylaşımı: ' : ''}${r.yeni} yeni soru depoya eklendi` + (r.var ? ` (${r.var} zaten vardı)` : '') + (r.sen ? ` · ${r.sen} senaryo` : ''), 5000);
+      route();
+    } else if (d.app === 'soruevim') { if (!await confirmBox('Bu bir tam yedek dosyası. İçe aktarılsın mı? Sorular ve belgeler eklenir; kurum kimliği ve branş ayarı dosyadakiyle değişir.', 'İçe aktar')) return; await db.importAll(d); toast('Yedek içe aktarıldı'); location.reload(); }
     else toast('Bu dosya bir Soru Evim belgesi değil');
   } catch { toast('Dosya okunamadı'); }
 } } });

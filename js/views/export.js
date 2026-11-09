@@ -62,18 +62,22 @@ export async function exportWord(doc, { teacher = false } = {}) {
   const head = [brand.kurum, doc.meta?.ders, doc.meta?.sinif, doc.meta?.konu].filter(Boolean).map(esc).join(' • ');
   if (head) body += `<p style="color:#555">${head}</p>`;
   if (doc.kind !== 'foy' || true) body += `<p>Adı Soyadı: ............................................ Sınıf: ........ No: ........</p><hr>`;
-  const blocks = doc.kind === 'foy' ? (doc.blocks || []) : docQids(doc).map(qid => ({ t: 'soru', qid }));
+  const yazili = doc.kind === 'yazili';
+  const blocks = doc.kind === 'foy' ? (doc.blocks || []) : (doc.items && !doc.sections) ? doc.items.map(it => it.type === 'kok' ? { t: 'kok', ...it } : { t: 'soru', qid: it.qid, puan: it.puan }) : docQids(doc).map(qid => ({ t: 'soru', qid }));
+  const rub = [];
   let no = 0; const key = [];
   for (const b of blocks) {
     if (b.t !== 'soru') {
       if (b.t === 'baslik') body += `<h1 style="color:${acc}">${esc(b.text)}</h1>`;
       else if (b.t === 'arabaslik') body += `<h2 style="color:${acc}">${esc(b.text)}</h2>`;
       else if (b.t === 'gorsel') body += `<p>${img(b.src || b.image, 420)}</p>`;
+      else if (b.t === 'kok') { body += `<div style="border:1pt solid ${acc};padding:6pt;margin-top:10pt">${b.baslik !== '' ? `<p><b>${esc(b.baslik || 'Aşağıdaki soruları bu bilgilere göre cevaplayınız.')}</b></p>` : ''}${b.text ? `<p>${richWord(b.text)}</p>` : ''}${b.image ? `<p>${img(b.image, 420)}</p>` : ''}</div>`; }
       else if (b.text) body += `<p>${richWord(b.text)}</p>`;
       continue;
     }
     const q = qmap[b.qid]; if (!q) continue; no++;
-    body += `<p style="margin-top:12pt"><b style="color:${acc}">${no}.</b> ${richWord(q.text)}</p>`;
+    body += `<p style="margin-top:12pt"><b style="color:${acc}">${no}.</b> ${richWord(q.text)}${yazili && b.puan ? ` <b>(${b.puan} Puan)</b>` : ''}</p>`;
+    if (yazili) rub.push({ no, q, puan: b.puan || 0 });
     for (const tb of q.tablo || []) body += `<table border=1 cellpadding=4 style="border-collapse:collapse">${tb.map(r => `<tr>${r.map(c => `<td>${richWord(c)}</td>`).join('')}</tr>`).join('')}</table>`;
     for (const im of (q.images?.length ? q.images : q.image ? [q.image] : [])) body += `<p>${img(im, 380)}</p>`;
     if ((q.type || 'coktan') === 'coktan') {
@@ -84,7 +88,10 @@ export async function exportWord(doc, { teacher = false } = {}) {
     if (teacher && (q.cozum || q.cozumImg)) body += `<p style="color:#555"><i>Çözüm:</i> ${richWord(q.cozum)} ${q.cozumImg ? img(q.cozumImg, 300) : ''}</p>`;
     key.push(`${no}-${q.answer || '?'}`);
   }
-  if (doc.ayar?.anahtar !== false && key.length) body += `<br clear=all style="page-break-before:always"><h2 style="color:${acc}">Cevap Anahtarı</h2><p>${key.join(' &nbsp; ')}</p>`;
+  if (yazili && doc.ayar?.anahtar && rub.length) {
+    const cev = q => (q.type === 'coktan' || !q.type || q.type === 'dy') ? esc(q.answer || '—') : richWord(q.cevapMetni || '—');
+    body += `<br clear=all style="page-break-before:always"><h2 style="color:${acc}">Cevap Anahtarı ve Puanlama</h2><table border=1 cellpadding=4 style="border-collapse:collapse;width:100%"><tr><th>No</th><th>Beklenen cevap</th><th>Puan</th><th>Puanlama ölçütü</th></tr>${rub.map(r => `<tr><td><b>${r.no}.</b></td><td>${cev(r.q)}</td><td align=center>${r.puan}</td><td>${esc(r.q.olcut || '').replace(/\n/g, '<br>')}</td></tr>`).join('')}<tr><td colspan=2 align=right><b>Toplam</b></td><td align=center><b>${rub.reduce((a, r) => a + (+r.puan || 0), 0)}</b></td><td></td></tr></table>`;
+  } else if (doc.ayar?.anahtar !== false && key.length) body += `<br clear=all style="page-break-before:always"><h2 style="color:${acc}">Cevap Anahtarı</h2><p>${key.join(' &nbsp; ')}</p>`;
   const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>body{font-family:Arial;font-size:11pt} p{margin:3pt 0} @page{size:21cm 29.7cm;margin:1.8cm}</style></head><body>${body}</body></html>`;
   // MHTML: Word görselleri ile birlikte açar
   const B = '----=_SoruEvim_' + Date.now();

@@ -500,13 +500,13 @@ async function renderDocOnce(host, doc, qmap, brand, { teacher = false, small = 
         const ans = q ? ((q.type === 'coktan' || !q.type || q.type === 'dy') ? q.answer : (q.cevapMetni ? '✎' : '')) : '';
         if (notes && ans) el.dataset.note = `${n}: ${ans}`;
         blocks.push({ el, genis: it.genis });
-        keyItems.push([n, ans]); qsInOrder.push(q);
+        keyItems.push([n, ans]); qsInOrder.push(q); (keyItems.puan ||= []).push(it.puan ?? 0);
         if (q?.cozum || q?.cozumImg) solutions.push([String(n), q]);
       }
       if (ayar.yonerge && ayar.yonergeYer === 'alt') blocks.push({ el: R('div.yonerge', ayar.yonerge), genis: true });
       const imz = (ayar.imzalar || []).filter(x => x && (x.ad || x.unvan));
       if (kind === 'yazili' && imz.length) blocks.push({ el: h('div.imza', imz.map(x => h('div', h('b', x.ad || ''), x.unvan || ''))), genis: true });
-      keyGroups.push({ items: keyItems, qs: qsInOrder });
+      keyGroups.push({ items: keyItems, qs: qsInOrder, puanlar: keyItems.puan || [] });
       const cols = kind === 'yazili' ? (ayar.cols || 1) : (ayar.cols || 2);
       const pages = await paginate(host, ctx, blocks, { cols, startPage: pno, firstHeader: !(ayar.kapak && kind !== 'banka') || true, kit: kitSuffix, notes });
       if (ayar.icindekiler && kind === 'banka') {
@@ -540,13 +540,21 @@ async function renderDocOnce(host, doc, qmap, brand, { teacher = false, small = 
       if (kit) content.append(h('div.sec-title', kit + ' kitapçığı'));
       for (const g of groups) {
         if (g.name) content.append(h('div.konu-title', g.name));
-        content.append(h('div.key-grid', { style: { marginBottom: '5mm' } }, g.items.map(([n, a]) => h('div', h('b', n + '.'), a || '—'))));
+        if (kind === 'yazili') {
+          const cevap = q => !q ? '—' : (q.type === 'coktan' || !q.type || q.type === 'dy') ? (q.answer || '—') : (q.cevapMetni || '—');
+          content.append(h('table.lo-table.rubrik', { style: { marginBottom: '5mm' } },
+            h('tr', h('th', { style: { width: '9mm' } }, 'No'), h('th', 'Beklenen cevap'), h('th', { style: { width: '14mm' } }, 'Puan'), h('th', 'Puanlama ölçütü')),
+            g.items.map(([n], i) => { const q = g.qs?.[i]; const ol = String(q?.olcut || '').split('\n').map(x => x.trim()).filter(Boolean);
+              return h('tr', h('td', h('b', n + '.')), h('td', { style: { whiteSpace: 'pre-wrap' } }, cevap(q)), h('td', { style: { textAlign: 'center' } }, String(g.puanlar?.[i] ?? '')),
+                h('td', ol.length ? h('ul', { style: { margin: 0, paddingLeft: '4mm' } }, ol.map(x => h('li', x))) : h('span', { style: { color: '#999' } }, 'Ölçüt girilmedi'))); }),
+            h('tr', h('td', { colspan: 2, style: { textAlign: 'right', fontWeight: 700 } }, 'Toplam'), h('td', { style: { textAlign: 'center', fontWeight: 700 } }, String((g.puanlar || []).reduce((a, b) => a + (+b || 0), 0))), h('td'))));
+        } else content.append(h('div.key-grid', { style: { marginBottom: '5mm' } }, g.items.map(([n, a]) => h('div', h('b', n + '.'), a || '—'))));
       }
     }
     const kaynaklar = ayar.kaynak ? [ayar.kaynak] : [...new Set(Object.values(keyGroupsByKit).flat().flatMap(g => (g.qs || []).map(q => String(q?.kaynak || '').split(' · ')[0])).filter(Boolean))].slice(0, 6);
     if (ayar.kaynakGoster !== false && kaynaklar.length) content.append(h('div.kaynak', h('b', 'Kaynak: '), kaynaklar.join(' · ')));
     if (qr && kind !== 'foy') content.append(h('div', { style: { marginTop: '4mm', display: 'flex', gap: '3mm', alignItems: 'center', fontSize: '.8em' } }, h('img', { src: qr, style: { width: '22mm' } }), ayar.karekod));
-    const kp = simplePage(ctx, 'Cevap Anahtarı', content, pno, { sub: doc.title || '' }); host.append(kp); all.push(kp); pno++;
+    const kp = simplePage(ctx, kind === 'yazili' ? 'Cevap Anahtarı ve Puanlama' : 'Cevap Anahtarı', content, pno, { sub: doc.title || '' }); host.append(kp); all.push(kp); pno++;
   }
 
   // Öğrenme çıktıları

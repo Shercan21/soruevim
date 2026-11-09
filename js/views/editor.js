@@ -2,7 +2,7 @@ import { h, toast, uid, confirmBox, readFileAsDataURL, readFileAsText, shrinkIma
 import { db, getBrand } from '../db.js';
 import { KINDS, VARIANTS, kindInfo, DENEME_TURLERI, BRANSLAR, denemeTuru, renderDoc, defaultAyar, setKatex, FOY_LABELS, lookOf } from '../render.js';
 import { HEADERS, TEMPLATES, PAGE_NUMS, Q_NUMS, BODY_FONTS, TITLE_FONTS, FOOTERS, SIZES, PAPERS, ensureFonts, loadKatex } from '../design.js';
-import { pickQuestions, editQuestion, qCard, cropTool, dersListesi } from './pool.js';
+import { pickQuestions, editQuestion, qCard, cropTool, dersListesi, exportQuestions } from './pool.js';
 import { dersSuz, dersIzinli, tumDersler, anaDers, soruIzinli, brans as bransBilgi, ozelKazanimFormu, ozelSil, OZEL_TEMA } from '../brans.js';
 import { SENARYOLAR, SENARYO_YILI, ciktiMetni, OGRENME_CIKTILARI } from '../meb.js';
 import { shuffle } from '../util.js';
@@ -382,7 +382,7 @@ async function senaryoCard(onKur) {
       ...oz.map(x => ['oz:' + x.id, `Benim · ${x.ad} — ${x.sinav} (${topla(x.d)} soru)`]),
       ['yeni', '✏️ Kendim seçeceğim (boş tablo)']];
     if (!secenek.some(o => o[0] === st.sen)) varsayilanSen();
-    box.append(h('div.grid', { style: { gap: '8px', marginTop: '8px', gridTemplateColumns: '2fr 1fr' } },
+    box.append(h('div.grid', { style: { gap: '8px', marginTop: '8px', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))' } },
       h('label.fld', 'Senaryo' + (m.length ? '' : ' — bu sınav için MEB senaryosu yok'), sel(secenek, st.sen, v => { st.sen = v; senaryoYukle(); draw(); })),
       h('label.fld', 'Sorular nasıl seçilsin?', sel([['oto', 'Otomatik (depodan)'], ['elle', 'Elle — ben seçeceğim']], st.mod, v => { st.mod = v; }))));
 
@@ -412,7 +412,7 @@ async function senaryoCard(onKur) {
     for (const k of satirlar) {
       if (k.tema && k.tema !== tema) { tema = k.tema; tablo.append(h('div.small', { style: { padding: '6px 10px', background: 'var(--cream-2)', fontWeight: 700, position: 'sticky', top: 0 } }, tema)); }
       const p = pool(k.kod).length;
-      const satir = h('div', { style: { display: 'grid', gridTemplateColumns: '24px 1fr 96px 120px', gap: '8px', alignItems: 'center', padding: '6px 10px', borderTop: '1px solid var(--line)' } });
+      const satir = h('div.yz-satir', { style: { display: 'grid', gap: '8px', alignItems: 'center', padding: '6px 10px', borderTop: '1px solid var(--line)' } });
       const ciz = () => {
         const n = st.sayi[k.kod] || 0;
         satir.style.background = n ? 'color-mix(in srgb,var(--navy) 8%,transparent)' : '';
@@ -444,6 +444,7 @@ async function senaryoCard(onKur) {
     const sil = async () => { if (!await confirmBox('Bu senaryo silinsin mi?', 'Sil')) return; ozel = ozel.filter(o => o.id !== oid); await db.kvSet('ozelSenaryolar', ozel); varsayilanSen(); draw(); };
     box.append(h('div.row', { style: { gap: '8px', flexWrap: 'wrap', marginTop: '4px' } },
       h('button.btn', { on: { click: kaydet } }, tip === 'oz' ? '💾 Senaryoyu güncelle' : '💾 Senaryom olarak kaydet'),
+      tip === 'oz' ? h('button.btn', { title: 'Bu senaryoyu meslektaşınıza dosya olarak gönderin', on: { click: () => { const o = ozel.find(x => x.id === oid); if (o) exportQuestions([], 'senaryo', { senaryolar: [o] }); } } }, '📤 Paylaş') : null,
       tip === 'oz' ? h('button.btn.btn-ghost', { on: { click: sil } }, '🗑 Sil') : null,
       h('span.spacer'),
       h('button.btn.btn-primary', { style: { padding: '12px 18px' }, on: { click: kur } }, 'Soruları yerleştir →')));
@@ -824,7 +825,7 @@ export async function editorView(app, { id }) {
         chk('Öne kapak ekle', () => a.kapak, v => a.kapak = v),
         h('label.fld', 'Karekod bağlantısı (ör. konu videosu)', h('input.inp', { value: a.karekod || '', placeholder: 'https://…', on: { change: e => { a.karekod = e.target.value.trim(); changed(); } } }), h('span.small.muted', { style: { fontWeight: 400 } }, 'İlk sayfanın başlığına basılır; öğrenci okutup videoyu açar.'))) : null,
       k !== 'foy' ? sec('Baskı ekleri', false,
-        k !== 'yazili' ? chk('Sona cevap anahtarı ekle', () => a.anahtar, v => a.anahtar = v) : chk('Sona cevap anahtarı ekle', () => a.anahtar, v => a.anahtar = v),
+        k !== 'yazili' ? chk('Sona cevap anahtarı ekle', () => a.anahtar, v => a.anahtar = v) : chk('Sona cevap anahtarı ve puanlama rehberi ekle (öğrenci kâğıdına basılmaz)', () => a.anahtar, v => a.anahtar = v),
         chk('Sona öğrenme çıktıları ekle', () => a.ogrenmeCiktilari, v => a.ogrenmeCiktilari = v),
         sel('Çözümler', a, 'cozumler', { yok: 'Gösterme', alt: 'Her sorunun altında', sonda: 'Sonda, ayrı sayfalarda' }),
         k === 'test' || k === 'banka' ? sel('Cevap anahtarı nereye basılsın?', a, 'anahtarYeri', { ayri: 'Ayrı sayfada', satir: 'Her sayfanın altında — tek satır', kutu: 'Her sayfanın altında — kutu içinde', sag: 'Her sayfanın sağ altında — küçük tablo', sol: 'Her sayfanın sol altında — küçük tablo' }) : h('span.small.muted', 'Anahtar her zaman ayrı sayfaya basılır; öğrencinin sayfasında görünmez.'),

@@ -270,3 +270,5 @@ body{background:radial-gradient(1200px 600px at 100% -10%,color-mix(in srgb,#8b5
 .q-item.pasif{opacity:.35;filter:grayscale(.7);cursor:not-allowed}
 
 @media (max-width:720px){.yazi-gizle{display:none}}
+.yz-satir{grid-template-columns:24px 1fr 96px 120px}
+@media (max-width:600px){.yz-satir{grid-template-columns:24px 1fr 1fr}.yz-satir>div{grid-column:2/4}.yz-satir>select:first-of-type{grid-column:2}}

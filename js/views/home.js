@@ -31,6 +31,7 @@ export async function homeView(app) {
       h('a.card.kind-card', { href: '#/havuz', 'data-tour': 'havuz' }, ico('havuz'), h('div', h('h3', 'Soru Deposu', h('span.tag', qs.length + ' SORU')), h('p', 'Kırptığınız ve yazdığınız bütün sorular burada birikir')), h('span.arrow', '→'))),
     docs.length ? h('div', h('div.eyebrow', 'Son belgeler'),
       h('div.grid.grid-2', docs.sort((a, b) => b.updated - a.updated).slice(0, 4).map(docCard))) : null,
+    await yedekHatirlat(qs),
     bulutKart(),
     h('div.row', { style: { marginTop: '28px', justifyContent: 'center', gap: '8px' } }, h('span.muted', '🎓 Branş: '), h('b', brans()?.ad || '—'),
       h('button.btn.btn-sm.btn-ghost', { on: { click: async () => { if (await bransSecici()) location.reload(); } } }, 'Değiştir')),
@@ -109,6 +110,25 @@ export function startTour(i = 0) {
     h('div', { style: { fontSize: '.8rem', opacity: .7 } }, `${i + 1} / ${TOUR.length}`), h('p', { style: { margin: '6px 0 10px' } }, text),
     h('div.row', h('button.btn.btn-sm', { on: { click: () => startTour(99) } }, 'Kapat'), h('span.spacer'), h('button.btn.btn-sm.btn-accent', { on: { click: () => startTour(i + 1) } }, i + 1 < TOUR.length ? 'Sonraki →' : 'Bitir')));
   document.body.append(box);
+}
+
+// Drive'a bağlı değilse ayda bir yedek hatırlatması
+async function yedekHatirlat(qs) {
+  const GUN = 864e5, simdi = Date.now();
+  if (await db.kvGet('bulutBagli')) return null;
+  let ilk = await db.kvGet('ilkKullanim'); if (!ilk) { ilk = simdi; await db.kvSet('ilkKullanim', ilk); }
+  const kendi = qs.filter(q => !q.hazir).length;
+  const son = (await db.kvGet('sonYedek')) || ilk, ertele = (await db.kvGet('yedekErtele')) || 0;
+  if (kendi < 10 || simdi - son < 30 * GUN || simdi < ertele) return null;
+  const gun = Math.floor((simdi - son) / GUN);
+  const kart = h('div.card', { style: { marginTop: '18px', display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap', borderColor: 'var(--orange)' } },
+    h('div', { style: { fontSize: '1.8rem' } }, '💾'),
+    h('div', { style: { flex: '1 1 260px' } }, h('b', 'Yedek alma zamanı'),
+      h('div.small.muted', `${kendi} kendi sorunuz ve belgeleriniz yalnızca bu tarayıcıda duruyor` + (gun < 3650 ? ` (son yedekten bu yana ${gun} gün geçti)` : '') + '. Tarayıcı verileri silinirse kaybolabilir. Bir yedek dosyası indirin ya da Google Drive ile eşitlemeyi açın.')),
+    h('div.row', { style: { gap: '6px' } },
+      h('button.btn.btn-primary', { on: { click: async () => { const data = await db.exportAll(); download(new Blob([JSON.stringify(data)], { type: 'application/json' }), 'soruevim-yedek-' + new Date().toISOString().slice(0, 10) + '.json'); toast('Yedek indirildi'); kart.remove(); } } }, '💾 Yedeği indir'),
+      h('button.btn.btn-ghost', { on: { click: async () => { await db.kvSet('yedekErtele', simdi + 7 * GUN); kart.remove(); } } }, 'Bir hafta sonra hatırlat')));
+  return kart;
 }
 
 // Google Drive eşitleme kartı

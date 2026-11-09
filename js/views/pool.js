@@ -20,6 +20,17 @@ export const HAZIR_PAKETLER = [
 ];
 
 // ---------- Soru kartı ----------
+// Hangi soru hangi belgelerde kullanıldı?
+let KULLANIM = new Map();
+export async function kullanimYenile() {
+  const m = new Map();
+  for (const d of await db.all('documents')) {
+    const ids = [...(d.items || []).map(i => i.qid), ...(d.sections || []).flatMap(x => x.qids || []), ...(d.blocks || []).map(b => b.qid)].filter(Boolean);
+    for (const id of new Set(ids)) { if (!m.has(id)) m.set(id, []); m.get(id).push(d.title || 'Adsız belge'); }
+  }
+  KULLANIM = m; return m;
+}
+export const kullanildi = id => KULLANIM.get(id) || [];
 export function qCard(q, { onClick, selected, actions, compact } = {}) {
   const body = h('div.q-body');
   if (q.text) body.append(h('div.q-text', { html: rich(q.text.length > 320 ? q.text.slice(0, 320) + '…' : q.text) }));
@@ -35,6 +46,7 @@ export function qCard(q, { onClick, selected, actions, compact } = {}) {
     q.zorluk ? h('span.chip.lvl' + q.zorluk, LEVELS[q.zorluk]) : null,
     q.kazanim ? h('span.chip', { title: ciktiMetni(q.kazanim) || q.kazanim }, '🎯 ' + q.kazanim) : null,
     q.hazir ? h('span.chip', { title: q.kaynak || '' }, '📘 ' + (q.kitapNo ? '#' + q.kitapNo : 'Hazır')) : null,
+    kullanildi(q.id).length ? h('span.chip', { style: { background: '#fde8c8', color: '#8a4b00' }, title: 'Kullanıldığı belgeler:\n' + kullanildi(q.id).join('\n') }, '📄 ' + kullanildi(q.id).length + ' belgede kullanıldı') : null,
     (q.etiketler || []).filter(e => e && !e.includes('•')).slice(0, 3).map(e => h('span.chip', '#' + e))));
   return h('div.q-item' + (selected ? '.selected' : ''), { on: onClick ? { click: onClick } : null, style: onClick ? { cursor: 'pointer' } : null }, body, actions || null);
 }
@@ -42,7 +54,7 @@ export function qCard(q, { onClick, selected, actions, compact } = {}) {
 // ---------- Filtre ----------
 export function filterBar(allSrc, onChange, preset = {}) {
   const getAll = typeof allSrc === 'function' ? allSrc : () => allSrc;
-  const st = { q: '', ders: '', sinif: '', zorluk: '', type: '', kazanim: '', konu: '', cevap: '', kaynak: '', ...preset };
+  const st = { q: '', ders: '', sinif: '', zorluk: '', type: '', kazanim: '', konu: '', cevap: '', kaynak: '', kullanim: '', ...preset };
   const sortTr = arr => arr.sort((a, b) => String(a).localeCompare(String(b), 'tr', { numeric: true }));
   const selects = {};
   const fill = (s, label, opts, cur) => { s.innerHTML = ''; s.append(h('option', { value: '' }, label), ...opts.map(([v, l]) => h('option', { value: v }, l))); s.value = cur || ''; return s.value === (cur || ''); };
@@ -72,6 +84,7 @@ export function filterBar(allSrc, onChange, preset = {}) {
     mk('zorluk', 'Her zorluk', Object.entries(LEVELS)),
     mk('type', 'Her tip', Object.entries(QTYPES)),
     mk('cevap', 'Cevap durumu', [['var', 'Cevaplı'], ['yok', 'Cevapsız']]),
+    mk('kullanim', 'Kullanım', [['yeni', 'Hiç kullanılmamış'], ['eski', 'Belgede kullanılmış']]),
     mk('kaynak', 'Her kaynak', [['hazir', 'Hazır bankalar'], ['benim', 'Kendi sorularım'], ['yazdigim', 'Elle eklenenler'], ['kirpilan', 'Kırpılan sorular']]));
   refreshDeps();
   bar.refresh = refreshDeps;
@@ -81,6 +94,7 @@ export function applyFilter(all, st) {
   const q = trLower(st.q);
   return all.filter(x => (!st.ders || x.ders === st.ders) && (!st.sinif || x.sinif === st.sinif) && (!st.zorluk || String(x.zorluk) === st.zorluk) && (!st.type || (x.type || 'coktan') === st.type)
     && (!st.konu || x.konu === st.konu) && (!st.kazanim || x.kazanim === st.kazanim)
+    && (!st.kullanim || (st.kullanim === 'yeni' ? !kullanildi(x.id).length : !!kullanildi(x.id).length))
     && (!st.cevap || (st.cevap === 'var' ? !!x.answer || x.type === 'klasik' : !x.answer && x.type !== 'klasik'))
     && (!st.kaynak || (st.kaynak === 'hazir' ? !!x.hazir : st.kaynak === 'benim' ? !x.hazir : st.kaynak === 'yazdigim' ? !x.hazir && !!x.text && !x.kirpildi : !!x.kirpildi))
     && (!q || trLower([x.text, x.konu, x.kazanim, x.ders, x.kaynak, ...(x.etiketler || []), ...(x.choices || [])].join(' ')).includes(q)));
@@ -88,6 +102,7 @@ export function applyFilter(all, st) {
 
 // ---------- Havuz ekranı ----------
 export async function poolView(app) {
+  await kullanimYenile();
   let all = (await db.all('questions')).filter(soruIzinli).sort((a, b) => b.created - a.created);
   let st = {}; const sel = new Set();
   const list = h('div.q-list');
@@ -126,7 +141,7 @@ export async function poolView(app) {
       h('button.btn.btn-sm', { on: { click: () => bulkTag(ids, () => render()) } }, '🏷 Etiketle'),
       h('button.btn.btn-sm', { on: { click: () => bulkAnswers(ids, all, () => render()) } }, '🔑 Cevap anahtarı'),
       h('button.btn.btn-sm', { on: { click: () => bulkStamp(ids, all, () => render()) } }, '◉ Damga bas'),
-      h('button.btn.btn-sm', { on: { click: () => exportQuestions(ids.map(i => all.find(q => q.id === i))) } }, '⬇ İndir'),
+      h('button.btn.btn-sm', { title: 'Seçili soruları meslektaşınıza dosya olarak gönderin', on: { click: () => exportQuestions(ids.map(i => all.find(q => q.id === i)), sel.size + '-soru') } }, '📤 Zümreyle paylaş'),
       h('button.btn.btn-sm.btn-danger', { on: { click: async () => { if (!await confirmBox(sel.size + ' soru silinsin mi?', 'Sil')) return; for (const i of ids) await db.del('questions', i); all = all.filter(q => !sel.has(q.id)); sel.clear(); render(); } } }, 'Sil'),
       h('span.spacer'),
       h('button.btn.btn-sm.btn-accent', { on: { click: () => createFrom(ids) } }, 'Oluştur → ' + sel.size + ' seçili soruyla')));
@@ -162,8 +177,11 @@ export async function poolView(app) {
   fbar = filterBar(() => all, s => { st = s; page = 0; render(); });
   lastLen = all.length;
   app.append(
-    h('div.row', h('h1', { style: { margin: 0 } }, 'Soru Deposu'), count, h('span.spacer'), hazirBtn(), addBtn(), cropBtn(), menu, imgsInp, backupInp),
-    h('p.muted', 'Bir kez ekleyin, her belgede kullanın. Ekran görüntüsünü Ctrl+V ile yapıştırabilir ya da görselleri sürükleyip bırakabilirsiniz.'),
+    h('div.row', h('h1', { style: { margin: 0 } }, 'Soru Deposu'), count, h('span.spacer'),
+      h('button.btn', { title: 'Hangi kazanımda kaç soru var?', on: { click: kazanimRaporu } }, '📊 Kazanım raporu'),
+      h('button.btn', { title: 'Meslektaşınızın gönderdiği paylaşım dosyasını depoya ekleyin', on: { click: () => window.__soruevim?.openFile() } }, '📥 Paylaşılanı al'),
+      hazirBtn(), addBtn(), cropBtn(), menu, imgsInp, backupInp),
+    h('p.muted', 'Bir kez ekleyin, her belgede kullanın. Ekran görüntüsünü Ctrl+V ile yapıştırabilir ya da görselleri sürükleyip bırakabilirsiniz. Soruları seçip “Zümreyle paylaş” diyerek meslektaşınıza gönderebilirsiniz.'),
     fbar,
     selBar, list);
   render();
@@ -180,8 +198,58 @@ export async function imagesAsQuestions(files, kaynak) {
   return out;
 }
 
-export function exportQuestions(qs, name = 'sorular') {
-  download(new Blob([JSON.stringify({ app: 'soruevim', tip: 'havuz', version: 1, questions: qs })], { type: 'application/json' }), name + '-' + new Date().toISOString().slice(0, 10) + '.json');
+export async function exportQuestions(qs, name = 'sorular', { senaryolar = [] } = {}) {
+  const b = await getBrand();
+  const kimden = b.ogretmen || b.kurum || '';
+  download(new Blob([JSON.stringify({ app: 'soruevim', tip: 'paylasim', version: 1, kimden, tarih: Date.now(), questions: qs, ozelSenaryolar: senaryolar })], { type: 'application/json' }),
+    'soruevim-paylasim-' + name + '-' + new Date().toISOString().slice(0, 10) + '.json');
+  toast('Paylaşım dosyası indirildi — WhatsApp, e-posta ya da flaş bellekle gönderebilirsiniz', 4500);
+}
+// Zümreden gelen paylaşım dosyasını depoya ekle (kendi ayarlarınıza dokunmaz)
+export async function paylasimAl(d) {
+  let yeni = 0, var_ = 0, sen = 0;
+  for (const q of d.questions || []) { if (await db.get('questions', q.id)) { var_++; continue; } await db.put('questions', { ...q, paylasan: d.kimden || q.paylasan || '' }); yeni++; }
+  if (d.ozelSenaryolar?.length) {
+    const mevcut = (await db.kvGet('ozelSenaryolar')) || [];
+    for (const x of d.ozelSenaryolar) if (!mevcut.some(m => m.id === x.id)) { mevcut.push({ ...x, ad: x.ad + (d.kimden ? ' (' + d.kimden + ')' : '') }); sen++; }
+    await db.kvSet('ozelSenaryolar', mevcut);
+  }
+  return { yeni, var: var_, sen };
+}
+
+// Kazanım raporu: hangi kazanımda kaç soru var (kolay/orta/zor)
+export async function kazanimRaporu() {
+  const qs = (await db.all('questions')).filter(soruIzinli);
+  const siniflar = Object.keys(OGRENME_CIKTILARI).filter(s => (OGRENME_CIKTILARI[s] || []).some(k => dersIzinli(k.ders)));
+  const last = await db.kvGet('raporSinif');
+  const st = { sinif: siniflar.includes(last) ? last : siniflar.find(s => s.startsWith('9')) || siniflar[0], sadeceEksik: false };
+  const box = h('div');
+  const ciz = () => {
+    box.innerHTML = '';
+    const kz = (OGRENME_CIKTILARI[st.sinif] || []).filter(k => dersIzinli(k.ders));
+    const say = {}; for (const q of qs) if (q.sinif === st.sinif && q.kazanim) { const s = say[q.kazanim] ||= { 1: 0, 2: 0, 3: 0, t: 0 }; s[+q.zorluk || 2]++; s.t++; }
+    const bos = kz.filter(k => !say[k.kod]).length, zorsuz = kz.filter(k => say[k.kod] && !say[k.kod][3]).length, kolaysiz = kz.filter(k => say[k.kod] && !say[k.kod][1]).length;
+    const sec = h('select.inp', { style: { width: 'auto' }, on: { change: e => { st.sinif = e.target.value; db.kvSet('raporSinif', st.sinif); ciz(); } } }, siniflar.map(s => h('option', { value: s, selected: s === st.sinif }, s)));
+    box.append(h('div.row', { style: { gap: '10px', flexWrap: 'wrap', alignItems: 'center' } }, sec,
+      h('label.row.small', { style: { gap: '4px' } }, h('input', { type: 'checkbox', checked: st.sadeceEksik, on: { change: e => { st.sadeceEksik = e.target.checked; ciz(); } } }), 'Sadece eksik olanları göster')),
+      h('div.row', { style: { gap: '8px', flexWrap: 'wrap', margin: '10px 0' } },
+        h('span.chip', { style: { background: '#f8dcd9' } }, `${bos} kazanımda hiç soru yok`),
+        h('span.chip', { style: { background: '#fde8c8' } }, `${kolaysiz} kazanımda kolay soru yok`),
+        h('span.chip', { style: { background: '#fde8c8' } }, `${zorsuz} kazanımda zor soru yok`),
+        h('span.chip', `${kz.length} kazanım · ${kz.reduce((a, k) => a + (say[k.kod]?.t || 0), 0)} soru`)));
+    const hucre = (n, kirmizi) => h('td', { style: { textAlign: 'center', fontWeight: 700, background: !n ? (kirmizi ? '#f8dcd9' : '#fdf0dc') : '' } }, String(n));
+    let tema = null; const rows = [];
+    for (const k of kz) {
+      const s = say[k.kod] || { 1: 0, 2: 0, 3: 0, t: 0 };
+      if (st.sadeceEksik && s[1] && s[2] && s[3]) continue;
+      if (k.tema !== tema) { tema = k.tema; rows.push(h('tr', h('td', { colspan: 5, style: { background: 'var(--cream-2)', fontWeight: 700 } }, tema || ''))); }
+      rows.push(h('tr', h('td', h('b', k.kod), h('div.small.muted', k.metin)), hucre(s.t, true), hucre(s[1]), hucre(s[2]), hucre(s[3])));
+    }
+    box.append(h('div', { style: { maxHeight: '60vh', overflow: 'auto' } }, h('table.table', { style: { width: '100%', fontSize: '.88rem' } },
+      h('tr', h('th', 'Kazanım'), h('th', 'Toplam'), h('th', 'Kolay'), h('th', 'Orta'), h('th', 'Zor')), rows.length ? rows : h('tr', h('td', { colspan: 5 }, 'Eksik kazanım yok 👏')))));
+  };
+  ciz();
+  modal('📊 Kazanım raporu', h('div', h('p.small.muted', { style: { marginTop: 0 } }, 'Deponuzda her kazanımdan kaç soru olduğunu gösterir. Kırmızılar hiç sorusu olmayan, turuncular o zorlukta sorusu olmayan kazanımlardır.'), box), { wide: true });
 }
 
 function createFrom(ids) {
@@ -330,6 +398,7 @@ export async function editQuestion(q, onSaved, { preset = {}, list = null } = {}
     } else {
       typeSpecific.append(h('div.form-grid',
         h('label.fld', { style: { gridColumn: '1/-1' } }, 'Beklenen cevap', h('textarea', { value: d.cevapMetni || '', rows: 2, on: { input: e => { d.cevapMetni = e.target.value; } } })),
+        h('label.fld', { style: { gridColumn: '1/-1' } }, 'Puanlama ölçütü (yazılıda cevap anahtarına basılır)', h('textarea', { value: d.olcut || '', rows: 3, placeholder: 'Her satıra bir ölçüt yazın, ör.\nDoğru formülü yazar — 4 puan\nBirimi doğru yazar — 1 puan', on: { input: e => { d.olcut = e.target.value; } } })),
         d.type === 'klasik' ? h('label.fld', 'Cevap boşluğu (satır)', h('input', { type: 'number', min: 0, max: 30, value: d.bosluk || '', placeholder: 'Belge ayarı', on: { input: e => { d.bosluk = +e.target.value || 0; } } })) : null));
     }
   };
@@ -413,6 +482,7 @@ export async function editQuestion(q, onSaved, { preset = {}, list = null } = {}
 export async function pickQuestions({ exclude = [], title = 'Depodan soru seç', filter, preset = {}, max = 0, tekKazanim = false, kazanimMax = tekKazanim ? 1 : 0, farkliZorluk = false, bilgi = '' } = {}) {
   let all = (await db.all('questions')).filter(soruIzinli).sort((a, b) => b.created - a.created);
   if (filter) all = all.filter(filter);
+  await kullanimYenile();
   const ex = new Set(exclude);
   const chosen = [];
   let st = { ...preset };
