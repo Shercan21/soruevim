@@ -146,9 +146,9 @@ export async function poolView(app) {
       h('span.spacer'),
       h('button.btn.btn-sm.btn-accent', { on: { click: () => createFrom(ids) } }, 'Oluştur → ' + sel.size + ' seçili soruyla')));
   };
-  const addBtn = () => h('button.btn.btn-primary', { on: { click: () => editQuestion(null, q => { all.unshift(q); render(); }) } }, '+ Soru yaz');
-  const cropBtn = () => h('button.btn.btn-accent', { on: { click: () => cropTool(qs => { all.unshift(...qs.reverse()); render(); }) } }, '✂ PDF / görselden kırp');
-  const hazirBtn = () => h('button.btn', { on: { click: () => hazirModal(async () => { all = (await db.all('questions')).sort((a, b) => b.created - a.created); render(); }) } }, '📘 Hazır soru bankaları');
+  const addBtn = () => h('button.btn.btn-primary', { 'data-tour': 'yaz', on: { click: () => editQuestion(null, q => { all.unshift(q); render(); }) } }, '+ Soru yaz');
+  const cropBtn = () => h('button.btn.btn-accent', { 'data-tour': 'kirp', on: { click: () => cropTool(qs => { all.unshift(...qs.reverse()); render(); }) } }, '✂ PDF / görselden kırp');
+  const hazirBtn = () => h('button.btn', { 'data-tour': 'hazir', on: { click: () => hazirModal(async () => { all = (await db.all('questions')).sort((a, b) => b.created - a.created); render(); }) } }, '📘 Hazır soru bankaları');
   const imgsInp = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true, on: { change: async e => { const qs = await imagesAsQuestions([...e.target.files]); all.unshift(...qs); render(); toast(qs.length + ' görsel soru olarak eklendi'); e.target.value = ''; } } });
   const backupInp = h('input', { type: 'file', accept: '.json,application/json', hidden: true, on: { change: async e => { const f = e.target.files[0]; if (!f) return; try { const d = JSON.parse(await readFileAsText(f)); const qs = d.questions || []; for (const q of qs) await db.put('questions', q); toast(qs.length + ' soru yüklendi'); all = (await db.all('questions')).sort((a, b) => b.created - a.created); render(); } catch { toast('Yedek okunamadı'); } } } });
 
@@ -174,12 +174,12 @@ export async function poolView(app) {
       h('button.btn.btn-ghost', { style: { justifyContent: 'flex-start' }, on: { click: () => { sel.clear(); rows().forEach(q => sel.add(q.id)); render(); } } }, '☑ Görünenlerin hepsini seç'),
       h('button.btn.btn-ghost.btn-danger', { style: { justifyContent: 'flex-start' }, on: { click: async () => { if (!await confirmBox('Bütün depo silinsin mi? Bu geri alınamaz.', 'Havuzu temizle')) return; await db.clear('questions'); all = []; sel.clear(); render(); } } }, '🗑 Havuzu temizle')));
 
-  fbar = filterBar(() => all, s => { st = s; page = 0; render(); });
+  fbar = filterBar(() => all, s => { st = s; page = 0; render(); }); fbar.dataset.tour = 'filtre';
   lastLen = all.length;
   app.append(
     h('div.row', h('h1', { style: { margin: 0 } }, 'Soru Deposu'), count, h('span.spacer'),
-      h('button.btn', { title: 'Hangi kazanımda kaç soru var?', on: { click: kazanimRaporu } }, '📊 Kazanım raporu'),
-      h('button.btn', { title: 'Meslektaşınızın gönderdiği paylaşım dosyasını depoya ekleyin', on: { click: () => window.__soruevim?.openFile() } }, '📥 Paylaşılanı al'),
+      h('button.btn', { 'data-tour': 'rapor', title: 'Hangi kazanımda kaç soru var?', on: { click: kazanimRaporu } }, '📊 Kazanım raporu'),
+      h('button.btn', { 'data-tour': 'paylasAl', title: 'Meslektaşınızın gönderdiği paylaşım dosyasını depoya ekleyin', on: { click: () => window.__soruevim?.openFile() } }, '📥 Paylaşılanı al'),
       hazirBtn(), addBtn(), cropBtn(), menu, imgsInp, backupInp),
     h('p.muted', 'Bir kez ekleyin, her belgede kullanın. Ekran görüntüsünü Ctrl+V ile yapıştırabilir ya da görselleri sürükleyip bırakabilirsiniz. Soruları seçip “Zümreyle paylaş” diyerek meslektaşınıza gönderebilirsiniz.'),
     fbar,

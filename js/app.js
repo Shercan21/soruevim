@@ -45,8 +45,10 @@ async function route() {
 window.addEventListener('hashchange', route);
 await loadBrans();
 await loadOzel();
-if (!brans()) await bransSecici({ zorunlu: true });
+const ilkAcilis = !brans();
+if (ilkAcilis) await bransSecici({ zorunlu: true });
 route();
+if (ilkAcilis && !(await db.kvGet('turGoruldu'))) { db.kvSet('turGoruldu', 1); setTimeout(() => startTour(0), 1200); }
 bulutBaslat();
 window.addEventListener('soruevim-buluttan', async e => { await loadBrans(); await loadOzel(); toast(`Drive’dan ${e.detail} değişiklik alındı`); if (!/^#\/belge\//.test(location.hash)) route(); });
 window.addEventListener('soruevim-hazir-eksik', async e => {
@@ -114,7 +116,7 @@ async function forceUpdate() {
 document.body.append(openInp);
 // Tema ve güncelleme, ana sayfanın altındaki küçük satırda gösterilir
 const themeSeg = () => h('div.seg', [['acik', '☀️ Açık'], ['koyu', '🌙 Koyu'], ['sistem', '🖥 Sistem']].map(([v, l]) => h('button' + (theme === v ? '.on' : ''), { type: 'button', on: { click: e => { theme = v; localStorage.setItem('tema', v); applyTheme(v); [...e.currentTarget.parentNode.children].forEach(b => b.classList.toggle('on', b === e.currentTarget)); } } }, l)));
-window.__soruevim = { themeSeg, forceUpdate, openFile: () => openInp.click(), tour: () => { location.hash = '#/'; setTimeout(startTour, 400); } };
+window.__soruevim = { themeSeg, forceUpdate, openFile: () => openInp.click(), tour: () => startTour(0) };
 
 // ---------- PWA: service worker, kurulum, çevrimdışı ----------
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {

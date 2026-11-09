@@ -30,8 +30,8 @@ export async function brandView(app, { inModal = false } = {}) {
   const changed = () => { save(); refresh(); };
 
   // --- Sekmeler ---
-  const tabHazir = h('button.on', { type: 'button' }, 'Şablon Galerisi');
-  const tabKendim = h('button', { type: 'button' }, 'Özel Ayarlar');
+  const tabHazir = h('button.on', { type: 'button', 'data-tour': 'sablon' }, 'Şablon Galerisi');
+  const tabKendim = h('button', { type: 'button', 'data-tour': 'ozel' }, 'Özel Ayarlar');
   const pane = h('div');
   const tabs = h('div.seg', { style: { width: '100%', display: 'flex' } }, tabHazir, tabKendim);
   [tabHazir, tabKendim].forEach(x => x.style.flex = '1');
@@ -63,7 +63,7 @@ export async function brandView(app, { inModal = false } = {}) {
       });
     };
     drawChips(); drawGrid();
-    const renkler = h('div.row', { style: { gap: '12px', flexWrap: 'wrap', alignItems: 'center' } });
+    const renkler = h('div.row', { 'data-tour': 'renk', style: { gap: '12px', flexWrap: 'wrap', alignItems: 'center' } });
     const renkCiz = () => { renkler.innerHTML = ''; renkler.append(
       h('b.small', '🎨 Şablonun rengi:'),
       h('span.small.muted', 'Ana'), renkSec(b.renk || '', c => { undoStack.push(structuredClone(b)); b.renk = c; changed(); undoBtn.disabled = false; }, { baslik: 'Ana renk — başlık, numaralar' }),

@@ -51,7 +51,7 @@ export async function introView(app, kind, opts = {}) {
   // Önce yol seçimi: depodan (kazanım/senaryo ile) ya da kırparak (boş kâğıt + PDF'ten kırpma)
   if (['test', 'tarama', 'deneme', 'yazili'].includes(kind) && !opts.yol && !opts.qids?.length) {
     const info = kindInfo(kind);
-    const sec = (ikon, baslik, aciklama, on) => h('button.card.kind-card', { type: 'button', style: { textAlign: 'left', cursor: 'pointer', width: '100%', alignItems: 'flex-start' }, on: { click: on } },
+    const sec = (ikon, baslik, aciklama, on) => h('button.card.kind-card', { type: 'button', 'data-tour': baslik.startsWith('Soru') ? 'kaynakDepo' : 'kaynakKirp', style: { textAlign: 'left', cursor: 'pointer', width: '100%', alignItems: 'flex-start' }, on: { click: on } },
       h('div.ico', { style: { fontSize: '1.5rem' } }, ikon), h('div', h('h3', baslik), h('p', aciklama)), h('span.arrow', '→'));
     app.append(h('a.btn.btn-sm.btn-ghost', { href: '#/' }, '← Geri dön'), h('h1', { style: { marginTop: '8px' } }, info.ad), h('p.muted', 'Soruları nereden alacaksınız?'),
       h('div.grid.grid-2', { style: { gap: '12px', marginTop: '12px' } },
@@ -367,7 +367,7 @@ async function senaryoCard(onKur) {
     const derslerSec = dersler.length <= 1
       ? h('select.inp', { disabled: true, title: 'Branşınızın dersi' }, h('option', st.ders))
       : h('select.inp', { on: { change: e => { st.ders = e.target.value; varsayilanSen(); draw(); } } }, dersler.map(o => h('option', { value: o, selected: o === st.ders }, o)));
-    box.append(h('div.grid', { style: { gap: '8px', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))' } },
+    box.append(h('div.grid', { 'data-tour': 'yz-secim', style: { gap: '8px', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))' } },
       h('label.fld', 'Sınıf', sel(SINIFLAR.slice(4, 12), st.sinif, v => { st.sinif = v; varsayilanSen(); draw(); })),
       h('label.fld', 'Ders', derslerSec),
       h('label.fld', 'Dönem', sel(DONEMLER, st.donem, v => { st.donem = v; varsayilanSen(); draw(); })),
@@ -382,12 +382,12 @@ async function senaryoCard(onKur) {
       ...oz.map(x => ['oz:' + x.id, `Benim · ${x.ad} — ${x.sinav} (${topla(x.d)} soru)`]),
       ['yeni', '✏️ Kendim seçeceğim (boş tablo)']];
     if (!secenek.some(o => o[0] === st.sen)) varsayilanSen();
-    box.append(h('div.grid', { style: { gap: '8px', marginTop: '8px', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))' } },
+    box.append(h('div.grid', { 'data-tour': 'yz-senaryo', style: { gap: '8px', marginTop: '8px', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))' } },
       h('label.fld', 'Senaryo' + (m.length ? '' : ' — bu sınav için MEB senaryosu yok'), sel(secenek, st.sen, v => { st.sen = v; senaryoYukle(); draw(); })),
       h('label.fld', 'Sorular nasıl seçilsin?', sel([['oto', 'Otomatik (depodan)'], ['elle', 'Elle — ben seçeceğim']], st.mod, v => { st.mod = v; }))));
 
     const yuzde = Array.from({ length: 21 }, (_, i) => String(i * 5));
-    box.append(h('div.row', { style: { gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginTop: '8px' } },
+    box.append(h('div.row', { 'data-tour': 'yz-zorluk', style: { gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginTop: '8px' } },
       h('b.small', 'Zorluk dağılımı:'),
       ...[1, 2, 3].map(z => h('label.row', { style: { gap: '4px' } }, h('span.chip.lvl' + z, { 1: 'Kolay', 2: 'Orta', 3: 'Zor' }[z]),
         sel(yuzde.map(v => [v, '%' + v]), String(st.oran[z]), v => { st.oran[z] = +v; ozetCiz(); }, { style: { width: '84px' } }))),
@@ -395,7 +395,7 @@ async function senaryoCard(onKur) {
 
     // Kazanım tablosu: işaretle + soru sayısı + puan (seçimle)
     const kz = kazanimlar();
-    const tablo = h('div', { style: { maxHeight: '46vh', overflow: 'auto', border: '1px solid var(--line)', borderRadius: '10px', marginTop: '10px' } });
+    const tablo = h('div', { 'data-tour': 'yz-tablo', style: { maxHeight: '46vh', overflow: 'auto', border: '1px solid var(--line)', borderRadius: '10px', marginTop: '10px' } });
     const ozet = h('div.small', { style: { margin: '8px 0', fontWeight: 600 } });
     const ozetCiz = () => {
       const n = topla(st.sayi), elle = Object.entries(st.puan).filter(([k, p]) => st.sayi[k] && p).reduce((a, [k, p]) => a + p * st.sayi[k], 0);
@@ -442,7 +442,7 @@ async function senaryoCard(onKur) {
       }
     };
     const sil = async () => { if (!await confirmBox('Bu senaryo silinsin mi?', 'Sil')) return; ozel = ozel.filter(o => o.id !== oid); await db.kvSet('ozelSenaryolar', ozel); varsayilanSen(); draw(); };
-    box.append(h('div.row', { style: { gap: '8px', flexWrap: 'wrap', marginTop: '4px' } },
+    box.append(h('div.row', { 'data-tour': 'yz-kaydet', style: { gap: '8px', flexWrap: 'wrap', marginTop: '4px' } },
       h('button.btn', { on: { click: kaydet } }, tip === 'oz' ? '💾 Senaryoyu güncelle' : '💾 Senaryom olarak kaydet'),
       tip === 'oz' ? h('button.btn', { title: 'Bu senaryoyu meslektaşınıza dosya olarak gönderin', on: { click: () => { const o = ozel.find(x => x.id === oid); if (o) exportQuestions([], 'senaryo', { senaryolar: [o] }); } } }, '📤 Paylaş') : null,
       tip === 'oz' ? h('button.btn.btn-ghost', { on: { click: sil } }, '🗑 Sil') : null,

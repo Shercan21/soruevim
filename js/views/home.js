@@ -23,7 +23,7 @@ export async function homeView(app) {
     h('div.grid', { style: { marginTop: '18px' } },
       h('a.card.kind-card', { href: '#/marka', 'data-tour': 'marka', style: brandReady ? null : { borderColor: 'var(--orange)' } },
         ico('marka'),
-        h('div', h('h3', 'Kurum Kimliğinizi Hazırlayın', brandReady ? h('span.tag', '✓ HAZIR') : null), h('p', 'Logonuz, renginiz ve iletişiminiz ürettiğiniz her belgede görünsün. Bir kez kurmanız yeterli.')),
+        h('div', h('h3', 'Sayfanızı Tasarlayın', brandReady ? h('span.tag', '✓ HAZIR') : null), h('p', 'Şablon, renk, logo ve kurum bilgileriniz ürettiğiniz her belgede görünsün. Bir kez kurmanız yeterli.')),
         h('span.arrow', '→'))),
     h('div.grid.grid-2', { style: { marginTop: '14px' } },
       kindCard('test'), kindCard('tarama'), kindCard('yazili'), kindCard('deneme'), kindCard('foy'), kindCard('banka', 'ÇOK SAYFA')),
@@ -35,7 +35,7 @@ export async function homeView(app) {
     bulutKart(),
     h('div.row', { style: { marginTop: '28px', justifyContent: 'center', gap: '8px' } }, h('span.muted', '🎓 Branş: '), h('b', brans()?.ad || '—'),
       h('button.btn.btn-sm.btn-ghost', { on: { click: async () => { if (await bransSecici()) location.reload(); } } }, 'Değiştir')),
-    window.__soruevim ? h('div.row.home-foot', { style: { marginTop: '12px', justifyContent: 'center', gap: '10px' } },
+    window.__soruevim ? h('div.row.home-foot', { 'data-tour': 'alt', style: { marginTop: '12px', justifyContent: 'center', gap: '10px' } },
       window.__soruevim.themeSeg(),
       h('button.btn.btn-sm.btn-ghost', { on: { click: window.__soruevim.openFile } }, '📂 Dosyadan aç'),
       h('button.btn.btn-sm.btn-ghost', { title: 'Sorularınız ve belgeleriniz silinmez', on: { click: window.__soruevim.forceUpdate } }, '🔄 Uygulamayı güncelle'),
@@ -93,24 +93,77 @@ function countOf(d) {
   return (d.items || []).length + ' soru';
 }
 
-// ---------- Kısa tur ----------
+// ---------- Tanıtım turu (sayfalar arasında gezer) ----------
 const TOUR = [
-  ['marka', 'Önce kurum kimliğinizi hazırlayın: logo, renk, şablon galerisi. Her dosyada kendiliğinden uygulanır.'],
-  ['havuz', 'Soru deposu: hazır kimya bankalarını ekleyin, PDF’ten kırpın ya da kendi sorunuzu yazın.'],
-  ['test', 'Ne hazırlayacağınızı seçin; sorular depodan gelir, sayfa düzeni A4’e göre kendiliğinden kurulur.'],
+  { yol: '#/', baslik: 'Soru Evim’e hoş geldiniz 👋', metin: 'Bu kısa turda uygulamanın bütün bölümlerini tek tek göstereceğim. İstediğiniz an “Kapat” diyebilir, sonra ana sayfanın altındaki “🧭 Tanıtım turu” ile yeniden başlatabilirsiniz.' },
+  { yol: '#/', sec: '[data-tour="marka"]', baslik: '1. Sayfanızı tasarlayın', metin: 'İlk iş burası. Okulunuzun adı, logonuz, renginiz ve sayfa şablonunuz bir kez ayarlanır; hazırladığınız her test, yazılı ve föyde kendiliğinden kullanılır.' },
+  { yol: '#/', sec: '[data-tour="test"]', baslik: 'Test', metin: 'Tek bir kazanım ya da alt çıktı için çoktan seçmeli test. Kolay/orta/zor yüzdesini verirsiniz, sorular depodan otomatik gelir ya da kendiniz seçersiniz.' },
+  { yol: '#/', sec: '[data-tour="tarama"]', baslik: 'Tarama testi', metin: 'Birden fazla kazanımı birlikte yoklayan test. Kazanımları işaretlersiniz, sorular kazanımlara dengeli dağıtılır.' },
+  { yol: '#/', sec: '[data-tour="yazili"]', baslik: 'Dönem yazılısı', metin: 'Dönem ve sınavı seçersiniz; MEB senaryosu hazır gelir. Kazanım, soru sayısı, puan ve zorluğu değiştirebilir, kendi senaryonuz olarak saklayabilirsiniz. Sona cevap anahtarı ve puanlama rehberi eklenir.' },
+  { yol: '#/', sec: '[data-tour="deneme"]', baslik: 'Deneme', metin: 'TYT, AYT, LGS ya da serbest deneme. Bölümler depodaki sorularla, her kazanımdan en çok kaç soru geleceğine göre dolar.' },
+  { yol: '#/', sec: '[data-tour="foy"]', baslik: 'Föy', metin: 'Konu anlatımlı çalışma kâğıdı: başlık, anlatım, NOT/DİKKAT kutuları, örnek ve “Şimdi sen” soruları.' },
+  { yol: '#/', sec: '[data-tour="banka"]', baslik: 'Soru bankası', metin: 'Çok sayfalı kitapçık: kapak, içindekiler, konu başlıkları ve cevap anahtarıyla.' },
+  { yol: '#/', sec: '[data-tour="havuz"]', baslik: 'Soru Deposu', metin: 'Bütün sorularınız burada birikir. Birazdan içini gezeceğiz.' },
+  { yol: '#/', sec: '[data-tour="bulut"]', baslik: 'Google Drive ile eşitleme', metin: 'İsteğe bağlı. Bağlanırsanız sorularınız ve belgeleriniz kendi Drive’ınızda saklanır; telefon ve bilgisayarda aynı depoyu kullanırsınız. Bağlanmazsanız her şey yalnızca bu cihazda kalır.' },
+  { yol: '#/', sec: '[data-tour="alt"]', baslik: 'Alt düğmeler', metin: 'Açık/koyu tema, dosyadan belge açma, uygulamayı güncelleme ve bu turu yeniden başlatma burada. Branşınızı da hemen üstünden değiştirebilirsiniz.' },
+  { yol: '#/', sec: '#iletisimBtn', baslik: 'Bize yazın', metin: 'Bir hata gördünüz ya da bir özellik mi istiyorsunuz? Buradan yazın; mesajınız doğrudan geliştiriciye ulaşır.' },
+  { yol: '#/marka', sec: '[data-tour="sablon"]', baslik: 'Şablon Galerisi', metin: 'Onlarca hazır sayfa tasarımı. Birine tıklayın, sağdaki örnek kâğıt hemen değişir. Beğenmezseniz “Geri al”.' },
+  { yol: '#/marka', sec: '[data-tour="renk"]', baslik: 'Renk paleti', metin: 'Seçtiğiniz şablonun rengini buradan değiştirin. Ana renk başlığı ve numaraları, ikinci renk NOT/DİKKAT kutularını boyar.' },
+  { yol: '#/marka', sec: '[data-tour="ozel"]', baslik: 'Özel Ayarlar', metin: 'Okul adı, öğretmen adı, logo, imza, damga, başlık ve numara tasarımlarını tek tek ayarlamak için burası.' },
+  { yol: '#/havuz', sec: '[data-tour="kirp"]', baslik: 'PDF / görselden kırp', metin: 'Kitabın ya da sınavın PDF’ini açın, soruları fareyle çerçeveleyip depoya ekleyin. Ekran görüntüsünü Ctrl+V ile de yapıştırabilirsiniz.' },
+  { yol: '#/havuz', sec: '[data-tour="yaz"]', baslik: 'Soru yaz', metin: 'Kendi sorunuzu yazın: şıklar, cevap, zorluk, kazanım. Açık uçlu sorularda beklenen cevap ve puanlama ölçütü de girilir.' },
+  { yol: '#/havuz', sec: '[data-tour="hazir"]', baslik: 'Hazır soru bankaları', metin: 'Branşınıza ait hazır soru paketlerini tek tıkla deponuza ekleyin.' },
+  { yol: '#/havuz', sec: '[data-tour="filtre"]', baslik: 'Süzgeçler', metin: 'Sınıf, kazanım, zorluk, tip ya da “hiç kullanılmamış” sorulara göre süzün. Bir belgede kullanılmış sorularda turuncu “📄 kullanıldı” etiketi görünür.' },
+  { yol: '#/havuz', sec: '[data-tour="rapor"]', baslik: 'Kazanım raporu', metin: 'Hangi kazanımda kaç kolay, orta, zor sorunuz olduğunu gösterir. Eksik kazanımlar kırmızı ve turuncu işaretlenir; hangi konuya soru eklemeniz gerektiğini görürsünüz.' },
+  { yol: '#/havuz', sec: '[data-tour="paylasAl"]', baslik: 'Zümre paylaşımı', metin: 'Soruları kutucuklarından seçip “📤 Zümreyle paylaş” deyin; inen dosyayı meslektaşınıza gönderin. O da bu düğmeyle kendi deposuna ekler.' },
+  { yol: '#/yeni/yazili', sec: '[data-tour="kaynakDepo"]', baslik: 'Yazılı hazırlamak', metin: 'Test, tarama, deneme ve yazılıda önce soruların nereden geleceğini seçersiniz: Soru Deposu’ndan…' },
+  { yol: '#/yeni/yazili', sec: '[data-tour="kaynakKirp"]', baslik: '…ya da kırparak', metin: 'Boş kâğıt açılır ve kırpma penceresi gelir; soruları doğrudan PDF’ten kırparak dizersiniz.' },
+  { yol: '#/yeni/yazili', once: () => document.querySelector('[data-tour="kaynakDepo"]')?.click(), sec: '[data-tour="yz-secim"]', baslik: 'Sınıf · ders · dönem · sınav', metin: 'Hepsi seçimle. Ders, başta seçtiğiniz branşa göre gelir.' },
+  { yol: '#/yeni/yazili', sec: '[data-tour="yz-senaryo"]', baslik: 'Senaryo ve seçim şekli', metin: 'MEB senaryoları, kendi kaydettikleriniz ya da “Kendim seçeceğim”. Sorular otomatik gelsin mi, yoksa her kazanım için listeden siz mi seçeceksiniz?' },
+  { yol: '#/yeni/yazili', sec: '[data-tour="yz-zorluk"]', baslik: 'Zorluk dağılımı', metin: 'Kolay %30 · orta %50 · zor %20 önerilir. Aynı kazanımdan iki soru varsa ikisi aynı zorlukta olmaz.' },
+  { yol: '#/yeni/yazili', sec: '[data-tour="yz-tablo"]', baslik: 'Kazanım tablosu', metin: 'Kazanımları işaretleyin; her birine soru sayısı ve isterseniz soru başına puan verin. “Depoda kaç soru var” da yanında yazar.' },
+  { yol: '#/yeni/yazili', sec: '[data-tour="yz-kaydet"]', baslik: 'Kaydet ve yerleştir', metin: 'Tabloyu kendi senaryonuz olarak saklayın ya da paylaşın. “Soruları yerleştir” deyince kâğıt hazır olur; sağdan tasarımı, puanları, kitapçık türünü düzenleyip “Yazdır / PDF” ya da “İndir → Word” ile alırsınız.' },
+  { yol: '#/', baslik: 'Hepsi bu kadar 🎉', metin: 'İlk adım olarak “Sayfanızı Tasarlayın”a girip okulunuzu ve şablonunuzu seçin, sonra Soru Deposu’na birkaç soru ekleyin. Takıldığınız yerde “💬 Bize yazın”.' },
 ];
-export function startTour(i = 0) {
-  document.querySelectorAll('.tour,.tour-hl').forEach(e => e.classList?.contains('tour') ? e.remove() : e.classList.remove('tour-hl'));
-  if (i >= TOUR.length) return;
-  const [key, text] = TOUR[i];
-  const el = document.querySelector(`[data-tour="${key}"]`); if (!el) return;
-  el.scrollIntoView({ block: 'center' }); el.classList.add('tour-hl');
-  const r = el.getBoundingClientRect();
-  const box = h('div.tour', { style: { left: Math.min(r.left, innerWidth - 340) + 'px', top: (r.bottom + 12 + 160 > innerHeight ? r.top - 150 : r.bottom + 12) + 'px' } },
-    h('div', { style: { fontSize: '.8rem', opacity: .7 } }, `${i + 1} / ${TOUR.length}`), h('p', { style: { margin: '6px 0 10px' } }, text),
-    h('div.row', h('button.btn.btn-sm', { on: { click: () => startTour(99) } }, 'Kapat'), h('span.spacer'), h('button.btn.btn-sm.btn-accent', { on: { click: () => startTour(i + 1) } }, i + 1 < TOUR.length ? 'Sonraki →' : 'Bitir')));
-  document.body.append(box);
+let turNo = 0;
+const bekle = ms => new Promise(r => setTimeout(r, ms));
+async function ogeBul(sec) { for (let k = 0; k < 30; k++) { const el = document.querySelector(sec); if (el && el.getBoundingClientRect().width) return el; await bekle(100); } return null; }
+export async function startTour(i = 0) {
+  const benim = ++turNo;
+  document.querySelectorAll('.tour,.tour-bg').forEach(e => e.remove()); document.querySelectorAll('.tour-hl').forEach(e => e.classList.remove('tour-hl'));
+  if (i < 0 || i >= TOUR.length) { document.removeEventListener('keydown', turTus); return; }
+  const a = TOUR[i];
+  if (location.hash !== a.yol && !(a.yol === '#/' && (location.hash === '' || location.hash === '#'))) { location.hash = a.yol; await bekle(500); }
+  if (a.once) { a.once(); await bekle(500); }
+  if (benim !== turNo) return;
+  const el = a.sec ? await ogeBul(a.sec) : null;
+  if (benim !== turNo) return;
+  if (a.sec && !el) return startTour(i + 1);
+  const gen = Math.min(340, innerWidth - 24);
+  const box = h('div.tour', { style: { width: gen + 'px', maxWidth: gen + 'px' } },
+    h('div', { style: { fontSize: '.78rem', opacity: .7 } }, `${i + 1} / ${TOUR.length}`),
+    h('b', { style: { display: 'block', marginTop: '4px', fontSize: '1.02rem' } }, a.baslik),
+    h('p', { style: { margin: '6px 0 12px', lineHeight: 1.45 } }, a.metin),
+    h('div.row', { style: { gap: '6px' } },
+      h('button.btn.btn-sm', { on: { click: () => startTour(-1) } }, 'Kapat'), h('span.spacer'),
+      i > 0 ? h('button.btn.btn-sm', { on: { click: () => startTour(i - 1) } }, '← Geri') : null,
+      h('button.btn.btn-sm.btn-accent', { on: { click: () => startTour(i + 1) } }, i + 1 < TOUR.length ? 'Sonraki →' : 'Bitir')));
+  if (el) {
+    el.scrollIntoView({ block: 'center' }); await bekle(250); el.classList.add('tour-hl');
+    const r = el.getBoundingClientRect();
+    document.body.append(box);
+    const bh = box.offsetHeight;
+    const alt = r.bottom + 12 + bh < innerHeight, ust = r.top - 12 - bh > 0;
+    box.style.left = Math.max(12, Math.min(r.left, innerWidth - gen - 12)) + 'px';
+    box.style.top = (alt ? r.bottom + 12 : ust ? r.top - 12 - bh : Math.max(12, innerHeight - bh - 12)) + 'px';
+  } else {
+    document.body.append(h('div.tour-bg'), box);
+    box.style.left = (innerWidth - gen) / 2 + 'px'; box.style.top = Math.max(20, innerHeight / 2 - box.offsetHeight / 2) + 'px';
+  }
+  turAktif = i; document.addEventListener('keydown', turTus);
 }
+let turAktif = 0;
+function turTus(e) { if (!document.querySelector('.tour')) return; if (e.key === 'Escape') startTour(-1); else if (e.key === 'ArrowRight') startTour(turAktif + 1); else if (e.key === 'ArrowLeft' && turAktif > 0) startTour(turAktif - 1); }
 
 // Drive'a bağlı değilse ayda bir yedek hatırlatması
 async function yedekHatirlat(qs) {
@@ -133,7 +186,7 @@ async function yedekHatirlat(qs) {
 
 // Google Drive eşitleme kartı
 function bulutKart() {
-  const kart = h('div.card', { style: { marginTop: '18px', display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' } });
+  const kart = h('div.card', { 'data-tour': 'bulut', style: { marginTop: '18px', display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' } });
   const saat = t => t ? new Date(t).toLocaleString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
   const ciz = d => {
     kart.innerHTML = '';
