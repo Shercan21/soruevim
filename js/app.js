@@ -57,6 +57,8 @@ await loadOzel();
 const ilkAcilis = !brans();
 if (ilkAcilis) await bransSecici({ zorunlu: true });
 route();
+// Belgede kullanılmayan “buraya soru yazın” yer tutucularını temizle (depoda kopya gibi görünmesin)
+setTimeout(async () => { try { const docs = await db.all('documents'); const kul = new Set(docs.flatMap(d => [...(d.items || []).map(i => i.qid), ...(d.sections || []).flatMap(x => x.qids || []), ...(d.blocks || []).map(b => b.qid)])); for (const q of await db.all('questions')) if (q.yerTutucu && !kul.has(q.id)) await db.del('questions', q.id); } catch { } }, 4000);
 if (ilkAcilis && !(await db.kvGet('turGoruldu'))) { db.kvSet('turGoruldu', 1); setTimeout(() => startTour(0), 1200); }
 bulutBaslat();
 window.addEventListener('soruevim-buluttan', async e => { await loadBrans(); await loadOzel(); toast(`Drive’dan ${e.detail} değişiklik alındı`); if (!/^#\/belge\//.test(location.hash)) route(); });

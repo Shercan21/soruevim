@@ -103,7 +103,7 @@ export function applyFilter(all, st) {
 // ---------- Havuz ekranı ----------
 export async function poolView(app) {
   await kullanimYenile();
-  let all = (await db.all('questions')).filter(soruIzinli).sort((a, b) => b.created - a.created);
+  let all = (await db.all('questions')).filter(q => soruIzinli(q) && !q.yerTutucu).sort((a, b) => b.created - a.created);
   let st = {}; const sel = new Set();
   const list = h('div.q-list');
   const count = h('span.muted');
@@ -219,7 +219,7 @@ export async function paylasimAl(d) {
 
 // Kazanım raporu: hangi kazanımda kaç soru var (kolay/orta/zor)
 export async function kazanimRaporu() {
-  const qs = (await db.all('questions')).filter(soruIzinli);
+  const qs = (await db.all('questions')).filter(q => soruIzinli(q) && !q.yerTutucu);
   const siniflar = Object.keys(OGRENME_CIKTILARI).filter(s => (OGRENME_CIKTILARI[s] || []).some(k => dersIzinli(k.ders)));
   const last = await db.kvGet('raporSinif');
   const st = { sinif: siniflar.includes(last) ? last : siniflar.find(s => s.startsWith('9')) || siniflar[0], sadeceEksik: false };
@@ -440,6 +440,7 @@ export async function editQuestion(q, onSaved, { preset = {}, list = null } = {}
     if (d.type === 'coktan' && !d.answer) { if (!await confirmBox('Doğru cevap seçilmedi. Yine de kaydedilsin mi?', 'Kaydet')) return; }
     d.updated = Date.now();
     d.etiketler = String(d._etiket ?? (d.etiketler || []).join(', ')).split(',').map(s => s.trim()).filter(Boolean); delete d._etiket;
+    if (d.yerTutucu && !/soru yazın:/.test(d.text || '')) delete d.yerTutucu; // öğretmen gerçek soruyu yazdı
     await db.put('questions', d);
     await db.kvSet('lastMeta', { ders: d.ders, sinif: d.sinif, konu: d.konu });
     m.close(); toast('Soru kaydedildi'); onSaved?.(d);
@@ -480,7 +481,7 @@ export async function editQuestion(q, onSaved, { preset = {}, list = null } = {}
 
 // ---------- Havuzdan seçici ----------
 export async function pickQuestions({ exclude = [], title = 'Depodan soru seç', filter, preset = {}, max = 0, tekKazanim = false, kazanimMax = tekKazanim ? 1 : 0, farkliZorluk = false, bilgi = '' } = {}) {
-  let all = (await db.all('questions')).filter(soruIzinli).sort((a, b) => b.created - a.created);
+  let all = (await db.all('questions')).filter(q => soruIzinli(q) && !q.yerTutucu).sort((a, b) => b.created - a.created);
   if (filter) all = all.filter(filter);
   await kullanimYenile();
   const ex = new Set(exclude);
